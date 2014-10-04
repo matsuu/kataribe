@@ -85,11 +85,11 @@ func showMeasures(measures []*Measure) {
     if countWidth < int(math.Log10(float64(measures[i].Count)) + 1) {
       countWidth = int(math.Log10(float64(measures[i].Count)) + 1)
     }
-    if totalWidth < int(math.Log10(measures[i].Total) + 1) {
-      totalWidth = int(math.Log10(measures[i].Total) + 1)
+    if totalWidth < int(math.Log10(measures[i].Total) + 1 + EFFECTIVE_DIGIT + 1) {
+      totalWidth = int(math.Log10(measures[i].Total) + 1 + EFFECTIVE_DIGIT + 1)
     }
-    if maxWidth < int(math.Log10(measures[i].Max) + 1) {
-      maxWidth = int(math.Log10(measures[i].Max) + 1)
+    if maxWidth < int(math.Log10(measures[i].Max) + 1 + EFFECTIVE_DIGIT + 1) {
+      maxWidth = int(math.Log10(measures[i].Max) + 1 + EFFECTIVE_DIGIT + 1)
     }
   }
 
@@ -97,14 +97,14 @@ func showMeasures(measures []*Measure) {
   for _, column := range columns {
     switch column.Name {
     case "Count":
-      fmt.Printf(fmt.Sprintf("%%%ds ", countWidth), column.Name)
-      format += fmt.Sprintf("%%%dd ", countWidth)
+      fmt.Printf(fmt.Sprintf("%%%ds  ", countWidth), column.Name)
+      format += fmt.Sprintf("%%%dd  ", countWidth)
     case "Total":
-      fmt.Printf(fmt.Sprintf("%%%ds ", totalWidth + EFFECTIVE_DIGIT + 1), column.Name)
-      format += fmt.Sprintf("%%%d.%df ", totalWidth + EFFECTIVE_DIGIT + 1, EFFECTIVE_DIGIT)
+      fmt.Printf(fmt.Sprintf("%%%ds  ", totalWidth), column.Name)
+      format += fmt.Sprintf("%%%d.%df  ", totalWidth, EFFECTIVE_DIGIT)
     default:
-      fmt.Printf(fmt.Sprintf("%%%ds ", maxWidth + EFFECTIVE_DIGIT + 1), column.Name)
-      format += fmt.Sprintf("%%%d.%df ", maxWidth + EFFECTIVE_DIGIT + 1, EFFECTIVE_DIGIT)
+      fmt.Printf(fmt.Sprintf("%%%ds  ", maxWidth), column.Name)
+      format += fmt.Sprintf("%%%d.%df  ", maxWidth, EFFECTIVE_DIGIT)
     }
   }
   fmt.Printf("url\n")
