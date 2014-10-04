@@ -38,9 +38,9 @@ type Measure struct {
   Url string
   Count int
   Total float64
-  Min float64
   Mean float64
-  Median float64
+  Min float64
+  P50 float64
   P90 float64
   P95 float64
   P99 float64
@@ -86,7 +86,7 @@ var (
       &Column{ Name: "Total", Summary: "Total", Sort: func(a, b *Measure) bool { return a.Total > b.Total } },
       &Column{ Name: "Mean", Summary: "Mean", Sort: func(a, b *Measure) bool { return a.Mean > b.Mean } },
       &Column{ Name: "Min", Summary: "Minimum(0 Percentile)", Sort: func(a, b *Measure) bool { return a.Min > b.Min } },
-      &Column{ Name: "Median", Summary: "Median(50 Percentile)", Sort: func(a, b *Measure) bool { return a.Median > b.Median } },
+      &Column{ Name: "P50", Summary: "Median(50 Percentile)", Sort: func(a, b *Measure) bool { return a.P50 > b.P50 } },
       &Column{ Name: "P90", Summary: "90 Percentile", Sort: func(a, b *Measure) bool { return a.P90 > b.P90 } },
       &Column{ Name: "P95", Summary: "95 Percentile", Sort: func(a, b *Measure) bool { return a.P95 > b.P95 } },
       &Column{ Name: "P99", Summary: "99 Percentile", Sort: func(a, b *Measure) bool { return a.P99 > b.P99 } },
@@ -137,12 +137,12 @@ func showMeasures(measures []*Measure) {
       format += fmt.Sprintf("%%%d.%df  ", maxWidth, EFFECTIVE_DIGIT)
     }
   }
-  fmt.Printf("url\n")
+  fmt.Printf("Url/Regexp\n")
   format += "%s\n"
 
   for i := 0; i < topCount; i++ {
     m := measures[i]
-    fmt.Printf(format, m.Count, m.Total, m.Mean, m.Min, m.Median, m.P90, m.P95, m.P99, m.Max, m.Url)
+    fmt.Printf(format, m.Count, m.Total, m.Mean, m.Min, m.P50, m.P90, m.P95, m.P99, m.Max, m.Url)
   }
 }
 
@@ -217,9 +217,9 @@ func main() {
         Url: url,
         Count: count,
         Total: total,
-        Min: sorted[0],
         Mean: totals[url]/float64(count),
-        Median: sorted[int(count*50/100)],
+        Min: sorted[0],
+        P50: sorted[int(count*50/100)],
         P90: sorted[int(count*90/100)],
         P95: sorted[int(count*95/100)],
         P99: sorted[int(count*99/100)],
