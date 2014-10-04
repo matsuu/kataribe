@@ -75,9 +75,6 @@ type Column struct {
 }
 
 var (
-    totals = make(map[string]float64)
-    times = make(map[string][]float64)
-    measures []*Measure
     columns = []*Column{
       &Column{ Name: "Count", Summary: "Count", Sort: func(a, b *Measure) bool { return a.Count > b.Count } },
       &Column{ Name: "Total", Summary: "Total", Sort: func(a, b *Measure) bool { return a.Total > b.Total } },
@@ -147,6 +144,8 @@ func main() {
         urlNormalizeRegexps = append(urlNormalizeRegexps, re)
     }
 
+    totals := make(map[string]float64)
+    times := make(map[string][]float64)
     for {
         line, err := reader.ReadString('\n')
         if err == io.EOF {
@@ -173,6 +172,7 @@ func main() {
         }
     }
 
+    var measures []*Measure
     for url, total := range totals {
       sorted := times[url]
       sort.Float64s(sorted)
