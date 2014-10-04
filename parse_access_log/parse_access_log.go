@@ -84,6 +84,7 @@ var (
 func showMeasures(measures []*Measure) {
   countWidth := 5 // for title
   totalWidth := 2 + EFFECTIVE_DIGIT
+  meanWidth := 2 + EFFECTIVE_DIGIT * 2
   maxWidth := 2 + EFFECTIVE_DIGIT
 
   for i := 0; i < topCount; i++ {
@@ -92,6 +93,9 @@ func showMeasures(measures []*Measure) {
     }
     if totalWidth < int(math.Log10(measures[i].Total) + 1 + EFFECTIVE_DIGIT + 1) {
       totalWidth = int(math.Log10(measures[i].Total) + 1 + EFFECTIVE_DIGIT + 1)
+    }
+    if meanWidth < int(math.Log10(measures[i].Max) + 1 + EFFECTIVE_DIGIT * 2 + 1) {
+      meanWidth = int(math.Log10(measures[i].Max) + 1 + EFFECTIVE_DIGIT * 2 + 1)
     }
     if maxWidth < int(math.Log10(measures[i].Max) + 1 + EFFECTIVE_DIGIT + 1) {
       maxWidth = int(math.Log10(measures[i].Max) + 1 + EFFECTIVE_DIGIT + 1)
@@ -107,6 +111,9 @@ func showMeasures(measures []*Measure) {
     case "Total":
       fmt.Printf(fmt.Sprintf("%%%ds  ", totalWidth), column.Name)
       format += fmt.Sprintf("%%%d.%df  ", totalWidth, EFFECTIVE_DIGIT)
+    case "Mean":
+      fmt.Printf(fmt.Sprintf("%%%ds  ", meanWidth), column.Name)
+      format += fmt.Sprintf("%%%d.%df  ", meanWidth, EFFECTIVE_DIGIT * 2)
     default:
       fmt.Printf(fmt.Sprintf("%%%ds  ", maxWidth), column.Name)
       format += fmt.Sprintf("%%%d.%df  ", maxWidth, EFFECTIVE_DIGIT)
