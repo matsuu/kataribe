@@ -7,10 +7,12 @@ import (
     "io"
     "math"
     "regexp"
+    "runtime"
     "runtime/pprof"
     "sort"
     "strconv"
     "strings"
+    "sync"
 )
 
 const (
@@ -92,6 +94,11 @@ var (
     }
 )
 
+type Time struct {
+  Url string
+  Time float64
+}
+
 func showMeasures(measures []*Measure) {
   countWidth := 5 // for title
   totalWidth := 2 + EFFECTIVE_DIGIT
@@ -140,6 +147,7 @@ func showMeasures(measures []*Measure) {
 }
 
 func main() {
+    runtime.GOMAXPROCS(runtime.NumCPU())
     if (useProfile) {
         f, err := os.Create("/tmp/parse_access_log.prof")
         if err != nil {
@@ -157,33 +165,47 @@ func main() {
         urlNormalizeRegexps = append(urlNormalizeRegexps, re)
     }
 
+    ch := make(chan *Time)
     totals := make(map[string]float64)
     times := make(map[string][]float64)
+    go func() {
+      for time := range ch {
+        totals[time.Url] += time.Time
+        times[time.Url] = append(times[time.Url], time.Time)
+      }
+    }()
+
+    var wg sync.WaitGroup
     for {
         line, err := reader.ReadString('\n')
         if err == io.EOF {
+          wg.Wait()
+          close(ch)
           break
         } else if err != nil {
           panic(err)
         }
-        s := strings.Split(line, " ")
-        if len(s) >= 7 {
-          url := strings.TrimLeft(strings.Join(s[5:7], " "), "\"")
-          for _, re := range urlNormalizeRegexps {
-            if re.MatchString(url) {
-              url = re.String()
-              break
+        wg.Add(1)
+        go func(line string) {
+          defer wg.Done()
+          s := strings.Split(line, " ")
+          if len(s) >= 7 {
+            url := strings.TrimLeft(strings.Join(s[5:7], " "), "\"")
+            for _, re := range urlNormalizeRegexps {
+              if re.MatchString(url) {
+                url = re.String()
+                break
+              }
             }
+            time, err := strconv.ParseFloat(strings.Trim(s[len(s)-1], "\r\n"), 10)
+            if err == nil {
+              time = time * scale
+            } else {
+              time = 0.000
+            }
+            ch <- &Time{Url: url, Time: time}
           }
-          time, err := strconv.ParseFloat(strings.Trim(s[len(s)-1], "\r\n"), 10)
-          if err == nil {
-            time = time * scale
-          } else {
-            time = 0.000
-          }
-          totals[url] += time
-          times[url] = append(times[url], time)
-        }
+        }(line)
     }
 
     var measures []*Measure
