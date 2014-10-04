@@ -139,7 +139,6 @@ func showMeasures(measures []*Measure) {
 
 func main() {
     reader := bufio.NewReaderSize(os.Stdin, 4096)
-    delimiter := regexp.MustCompile(" +")
     scale := math.Pow10(SCALE)
 
     var urlNormalizeRegexps []*regexp.Regexp
@@ -157,12 +156,13 @@ func main() {
         } else if err != nil {
           panic(err)
         }
-        s := delimiter.Split(line, -1)
+        s := strings.Split(line, " ")
         if len(s) >= 7 {
           url := strings.TrimLeft(strings.Join(s[5:7], " "), "\"")
           for _, re := range urlNormalizeRegexps {
             if re.MatchString(url) {
               url = re.String()
+              break
             }
           }
           time, err := strconv.ParseFloat(strings.Trim(s[len(s)-1], "\r\n"), 10)
