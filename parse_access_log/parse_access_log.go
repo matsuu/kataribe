@@ -17,8 +17,8 @@ const (
    SCALE = 0
    EFFECTIVE_DIGIT = 3
    // for Apache(%D)
-   // SCALE= -6
-   // SCALE= EFFECTIVE_DIGIT = 6
+   // SCALE = -6
+   // EFFECTIVE_DIGIT = 6
 )
 
 type Measure struct {
