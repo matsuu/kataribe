@@ -5,6 +5,7 @@ import (
     "bufio"
     "fmt"
     "io"
+    "math"
     "regexp"
     "sort"
     "strconv"
@@ -22,45 +23,92 @@ type Measure struct {
   Max float64
 }
 
-type Measures []*Measure
+type By func(a, b *Measure) bool
 
-func (m Measures) Len() int { return len(m) }
-func (m Measures) Swap(i, j int) { m[i], m[j] = m[j], m[i] }
+func (by By) Sort(measures []*Measure) {
+  ms := &measureSorter{
+    measures: measures,
+    by: by,
+  }
+  sort.Sort(ms)
+}
 
-type ByCount struct { Measures }
-func (m ByCount) Less(i, j int) bool { return m.Measures[i].Count > m.Measures[j].Count }
+type measureSorter struct {
+  measures []*Measure
+  by func(a, b *Measure) bool
+}
 
-type ByTotal struct { Measures }
-func (m ByTotal) Less(i, j int) bool { return m.Measures[i].Total > m.Measures[j].Total }
+func (s *measureSorter) Len() int {
+  return len(s.measures)
+}
 
-type ByMin struct { Measures }
-func (m ByMin) Less(i, j int) bool { return m.Measures[i].Min > m.Measures[j].Min }
+func (s *measureSorter) Swap(i, j int) {
+  s.measures[i], s.measures[j] = s.measures[j], s.measures[i]
+}
 
-type ByMean struct { Measures }
-func (m ByMean) Less(i, j int) bool { return m.Measures[i].Mean > m.Measures[j].Mean }
+func (s *measureSorter) Less(i, j int) bool {
+  return s.by(s.measures[i], s.measures[j])
+}
 
-type ByMedian struct { Measures }
-func (m ByMedian) Less(i, j int) bool { return m.Measures[i].Median > m.Measures[j].Median }
-
-type ByP90 struct { Measures }
-func (m ByP90) Less(i, j int) bool { return m.Measures[i].P90 > m.Measures[j].P90 }
-
-type ByMax struct { Measures }
-func (m ByMax) Less(i, j int) bool { return m.Measures[i].Max > m.Measures[j].Max }
+type Column struct {
+  Name string
+  Summary string
+  Sort By
+}
 
 var (
     totals = make(map[string]float64)
     times = make(map[string][]float64)
-    measures Measures
+    measures []*Measure
     topCount = 10
+    columns = []*Column{
+      &Column{ Name: "Count", Summary: "Count", Sort: func(a, b *Measure) bool { return a.Count > b.Count } },
+      &Column{ Name: "Total", Summary: "Total", Sort: func(a, b *Measure) bool { return a.Total > b.Total } },
+      &Column{ Name: "Mean", Summary: "Mean", Sort: func(a, b *Measure) bool { return a.Mean > b.Mean } },
+      &Column{ Name: "Min", Summary: "Minimum(0 Percentile)", Sort: func(a, b *Measure) bool { return a.Min > b.Min } },
+      &Column{ Name: "Median", Summary: "Median(50 Percentile)", Sort: func(a, b *Measure) bool { return a.Median > b.Median } },
+      &Column{ Name: "P90", Summary: "90 Percentile", Sort: func(a, b *Measure) bool { return a.P90 > b.P90 } },
+      &Column{ Name: "Max", Summary: "Maximum(100 Percentile)", Sort: func(a, b *Measure) bool { return a.Max > b.Max } },
+    }
 )
 
 func showMeasures(measures []*Measure) {
-    fmt.Printf("%8s %8s %8s %8s %8s %8s %8s %s\n", "count", "total", "min", "mean", "median", "p90", "max", "url")
-    for i := 0; i < topCount; i++ {
-      m := measures[i]
-      fmt.Printf("%8d %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %s\n", m.Count, m.Total, m.Min, m.Mean, m.Median, m.P90, m.Max, m.Url)
+  countWidth := 5
+  totalWidth := 5
+  maxWidth := 5
+  for i := 0; i < topCount; i++ {
+    if countWidth < int(math.Log10(float64(measures[i].Count)) + 1) {
+      countWidth = int(math.Log10(float64(measures[i].Count)) + 1)
     }
+    if totalWidth < int(math.Log10(measures[i].Total) + 1) {
+      totalWidth = int(math.Log10(measures[i].Total) + 1)
+    }
+    if maxWidth < int(math.Log10(measures[i].Max) + 1) {
+      maxWidth = int(math.Log10(measures[i].Max) + 1)
+    }
+  }
+
+  var format string
+  for _, column := range columns {
+    switch column.Name {
+    case "Count":
+      fmt.Printf(fmt.Sprintf("%%%ds ", countWidth), column.Name)
+      format += fmt.Sprintf("%%%dd ", countWidth)
+    case "Total":
+      fmt.Printf(fmt.Sprintf("%%%ds ", totalWidth + 4), column.Name)
+      format += fmt.Sprintf("%%%d.3f ", totalWidth + 4)
+    default:
+      fmt.Printf(fmt.Sprintf("%%%ds ", maxWidth + 4), column.Name)
+      format += fmt.Sprintf("%%%d.3f ", maxWidth + 4)
+    }
+  }
+  fmt.Printf("url\n")
+  format += "%s\n"
+
+  for i := 0; i < topCount; i++ {
+    m := measures[i]
+    fmt.Printf(format, m.Count, m.Total, m.Min, m.Mean, m.Median, m.P90, m.Max, m.Url)
+  }
 }
 
 func main() {
@@ -109,31 +157,10 @@ func main() {
       topCount = len(measures)
     }
 
-    fmt.Println("Count")
-    sort.Sort(ByCount{measures})
-    showMeasures(measures)
-
-    fmt.Println("Total")
-    sort.Sort(ByTotal{measures})
-    showMeasures(measures)
-
-    fmt.Println("Min")
-    sort.Sort(ByMin{measures})
-    showMeasures(measures)
-
-    fmt.Println("Mean")
-    sort.Sort(ByMean{measures})
-    showMeasures(measures)
-
-    fmt.Println("Median(50Percentile)")
-    sort.Sort(ByMedian{measures})
-    showMeasures(measures)
-
-    fmt.Println("90Percentile")
-    sort.Sort(ByP90{measures})
-    showMeasures(measures)
-
-    fmt.Println("Max")
-    sort.Sort(ByMax{measures})
-    showMeasures(measures)
+    for _, column := range columns {
+      fmt.Printf("Sort By %s\n", column.Summary)
+      By(column.Sort).Sort(measures)
+      showMeasures(measures)
+      fmt.Println()
+    }
 }
