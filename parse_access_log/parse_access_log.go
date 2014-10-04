@@ -13,7 +13,12 @@ import (
 )
 
 const (
+   // for Nginx($request_time)
+   SCALE = 0
    EFFECTIVE_DIGIT = 3
+   // for Apache(%D)
+   // SCALE= -6
+   // SCALE= EFFECTIVE_DIGIT = 6
 )
 
 type Measure struct {
@@ -119,6 +124,7 @@ func showMeasures(measures []*Measure) {
 func main() {
     reader := bufio.NewReaderSize(os.Stdin, 4096)
     delimiter := regexp.MustCompile(" +")
+    scale := math.Pow10(SCALE)
     for {
         line, err := reader.ReadString('\n')
         if err == io.EOF {
@@ -133,10 +139,11 @@ func main() {
             url = strings.TrimLeft(strings.Join(s[5:7], " "), "\"")
           }
           time, err := strconv.ParseFloat(strings.Trim(s[len(s)-1], "\r\n"), 10)
-          if err != nil {
+          if err == nil {
+            time = time * scale
+          } else {
             time = 0.000
           }
-          // time /= 1000000 // for Apache
           totals[url] += time
           times[url] = append(times[url], time)
         }
