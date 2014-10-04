@@ -12,6 +12,10 @@ import (
     "strings"
 )
 
+const (
+   EFFECTIVE_DIGIT = 3
+)
+
 type Measure struct {
   Url string
   Count int
@@ -73,9 +77,10 @@ var (
 )
 
 func showMeasures(measures []*Measure) {
-  countWidth := 5
-  totalWidth := 5
-  maxWidth := 5
+  countWidth := 5 // for title
+  totalWidth := 2 + EFFECTIVE_DIGIT
+  maxWidth := 2 + EFFECTIVE_DIGIT
+
   for i := 0; i < topCount; i++ {
     if countWidth < int(math.Log10(float64(measures[i].Count)) + 1) {
       countWidth = int(math.Log10(float64(measures[i].Count)) + 1)
@@ -95,11 +100,11 @@ func showMeasures(measures []*Measure) {
       fmt.Printf(fmt.Sprintf("%%%ds ", countWidth), column.Name)
       format += fmt.Sprintf("%%%dd ", countWidth)
     case "Total":
-      fmt.Printf(fmt.Sprintf("%%%ds ", totalWidth + 4), column.Name)
-      format += fmt.Sprintf("%%%d.3f ", totalWidth + 4)
+      fmt.Printf(fmt.Sprintf("%%%ds ", totalWidth + EFFECTIVE_DIGIT + 1), column.Name)
+      format += fmt.Sprintf("%%%d.%df ", totalWidth + EFFECTIVE_DIGIT + 1, EFFECTIVE_DIGIT)
     default:
-      fmt.Printf(fmt.Sprintf("%%%ds ", maxWidth + 4), column.Name)
-      format += fmt.Sprintf("%%%d.3f ", maxWidth + 4)
+      fmt.Printf(fmt.Sprintf("%%%ds ", maxWidth + EFFECTIVE_DIGIT + 1), column.Name)
+      format += fmt.Sprintf("%%%d.%df ", maxWidth + EFFECTIVE_DIGIT + 1, EFFECTIVE_DIGIT)
     }
   }
   fmt.Printf("url\n")
