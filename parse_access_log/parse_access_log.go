@@ -7,12 +7,14 @@ import (
     "io"
     "math"
     "regexp"
+    "runtime/pprof"
     "sort"
     "strconv"
     "strings"
 )
 
 const (
+   useProfile = false
    // for Nginx($request_time)
    SCALE = 0
    EFFECTIVE_DIGIT = 3
@@ -138,6 +140,14 @@ func showMeasures(measures []*Measure) {
 }
 
 func main() {
+    if (useProfile) {
+        f, err := os.Create("/tmp/parse_access_log.prof")
+        if err != nil {
+            panic(err)
+        }
+        pprof.StartCPUProfile(f)
+        defer pprof.StopCPUProfile()
+    }
     reader := bufio.NewReaderSize(os.Stdin, 4096)
     scale := math.Pow10(SCALE)
 
