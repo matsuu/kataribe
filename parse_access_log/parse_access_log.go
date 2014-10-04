@@ -21,6 +21,15 @@ const (
    // EFFECTIVE_DIGIT = 6
 )
 
+var (
+    topCount = 10
+    urlNormalizes = []string{
+      "^GET /memo/[0-9]+$",
+      "^GET /stylesheets/",
+      "^GET /images/",
+    }
+)
+
 type Measure struct {
   Url string
   Count int
@@ -69,7 +78,6 @@ var (
     totals = make(map[string]float64)
     times = make(map[string][]float64)
     measures []*Measure
-    topCount = 10
     columns = []*Column{
       &Column{ Name: "Count", Summary: "Count", Sort: func(a, b *Measure) bool { return a.Count > b.Count } },
       &Column{ Name: "Total", Summary: "Total", Sort: func(a, b *Measure) bool { return a.Total > b.Total } },
@@ -132,6 +140,13 @@ func main() {
     reader := bufio.NewReaderSize(os.Stdin, 4096)
     delimiter := regexp.MustCompile(" +")
     scale := math.Pow10(SCALE)
+
+    var urlNormalizeRegexps []*regexp.Regexp
+    for _, str := range urlNormalizes {
+	re := regexp.MustCompile(str)
+        urlNormalizeRegexps = append(urlNormalizeRegexps, re)
+    }
+
     for {
         line, err := reader.ReadString('\n')
         if err == io.EOF {
@@ -140,10 +155,12 @@ func main() {
           panic(err)
         }
         s := delimiter.Split(line, -1)
-        if len(s) > 0 {
-          var url string
-          if len(s) >= 7 {
-            url = strings.TrimLeft(strings.Join(s[5:7], " "), "\"")
+        if len(s) >= 7 {
+          url := strings.TrimLeft(strings.Join(s[5:7], " "), "\"")
+          for _, re := range urlNormalizeRegexps {
+            if re.MatchString(url) {
+              url = re.String()
+            }
           }
           time, err := strconv.ParseFloat(strings.Trim(s[len(s)-1], "\r\n"), 10)
           if err == nil {
