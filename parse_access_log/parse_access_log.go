@@ -107,7 +107,7 @@ func showMeasures(measures []*Measure) {
 
   for i := 0; i < topCount; i++ {
     m := measures[i]
-    fmt.Printf(format, m.Count, m.Total, m.Min, m.Mean, m.Median, m.P90, m.Max, m.Url)
+    fmt.Printf(format, m.Count, m.Total, m.Mean, m.Min, m.Median, m.P90, m.Max, m.Url)
   }
 }
 
