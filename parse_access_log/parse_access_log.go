@@ -23,10 +23,16 @@ const (
 	// for Apache(%D)
 	// SCALE = -6
 	// EFFECTIVE_DIGIT = 6
+
+	MIN_COUNT_WIDTH = 5 // for title
+	MIN_TOTAL_WIDTH = 2 + EFFECTIVE_DIGIT
+	MIN_MEAN_WIDTH  = 2 + EFFECTIVE_DIGIT*2
+	MIN_MAX_WIDTH   = 2 + EFFECTIVE_DIGIT
 )
 
 var (
 	topCount      = 10
+	allCount      = 37
 	urlNormalizes = []string{
 		"^GET /memo/[0-9]+$",
 		"^GET /stylesheets/",
@@ -94,29 +100,54 @@ var (
 	}
 )
 
+type ByTime []*Time
+
 type Time struct {
 	Url  string
 	Time float64
 }
 
+func (a ByTime) Len() int           { return len(a) }
+func (a ByTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByTime) Less(i, j int) bool { return a[i].Time > a[j].Time }
+
+func getIntegerDigitWidth(f float64) int {
+	var w int
+	switch {
+	case f < 0:
+		w++
+		fallthrough
+	case math.Abs(f) < 1:
+		w++
+	default:
+		w += int(math.Log10(math.Abs(f)) + 1)
+	}
+	return w
+}
+
 func showMeasures(measures []*Measure) {
-	countWidth := 5 // for title
-	totalWidth := 2 + EFFECTIVE_DIGIT
-	meanWidth := 2 + EFFECTIVE_DIGIT*2
-	maxWidth := 2 + EFFECTIVE_DIGIT
+	countWidth := MIN_COUNT_WIDTH
+	totalWidth := MIN_TOTAL_WIDTH
+	meanWidth := MIN_MEAN_WIDTH
+	maxWidth := MIN_MAX_WIDTH
 
 	for i := 0; i < topCount; i++ {
-		if countWidth < int(math.Log10(float64(measures[i].Count))+1) {
-			countWidth = int(math.Log10(float64(measures[i].Count)) + 1)
+		var w int
+		w = getIntegerDigitWidth(float64(measures[i].Count))
+		if countWidth < w {
+			countWidth = w
 		}
-		if totalWidth < int(math.Log10(measures[i].Total)+1+EFFECTIVE_DIGIT+1) {
-			totalWidth = int(math.Log10(measures[i].Total) + 1 + EFFECTIVE_DIGIT + 1)
+		w = getIntegerDigitWidth(measures[i].Total) + 1 + EFFECTIVE_DIGIT
+		if totalWidth < w {
+			totalWidth = w
 		}
-		if meanWidth < int(math.Log10(measures[i].Max)+1+EFFECTIVE_DIGIT*2+1) {
-			meanWidth = int(math.Log10(measures[i].Max) + 1 + EFFECTIVE_DIGIT*2 + 1)
+		w = getIntegerDigitWidth(measures[i].Mean) + 1 + EFFECTIVE_DIGIT*2
+		if meanWidth < w {
+			meanWidth = w
 		}
-		if maxWidth < int(math.Log10(measures[i].Max)+1+EFFECTIVE_DIGIT+1) {
-			maxWidth = int(math.Log10(measures[i].Max) + 1 + EFFECTIVE_DIGIT + 1)
+		w = getIntegerDigitWidth(measures[i].Max) + 1 + EFFECTIVE_DIGIT
+		if maxWidth < w {
+			maxWidth = w
 		}
 	}
 
@@ -146,6 +177,20 @@ func showMeasures(measures []*Measure) {
 	}
 }
 
+func showTop(allTimes []*Time) {
+	sort.Sort(ByTime(allTimes))
+	if len(allTimes) < allCount {
+		allCount = len(allTimes)
+	}
+
+	iWidth := getIntegerDigitWidth(float64(allCount))
+	topWidth := getIntegerDigitWidth(allTimes[0].Time) + 1 + EFFECTIVE_DIGIT
+	f := fmt.Sprintf("%%%dd  %%%d.%df  %%s\n", iWidth, topWidth, EFFECTIVE_DIGIT)
+	for i := 0; i < allCount; i++ {
+		fmt.Printf(f, i+1, allTimes[i].Time, allTimes[i].Url)
+	}
+}
+
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	if useProfile {
@@ -168,10 +213,12 @@ func main() {
 	ch := make(chan *Time)
 	totals := make(map[string]float64)
 	times := make(map[string][]float64)
+	var allTimes []*Time
 	go func() {
 		for time := range ch {
 			totals[time.Url] += time.Time
 			times[time.Url] = append(times[time.Url], time.Time)
+			allTimes = append(allTimes, time)
 		}
 	}()
 
@@ -239,4 +286,7 @@ func main() {
 			fmt.Println()
 		}
 	}
+
+	fmt.Printf("TOP %d Slow Requests\n", allCount)
+	showTop(allTimes)
 }
