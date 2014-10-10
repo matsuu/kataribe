@@ -85,11 +85,11 @@ var (
 		&Column{Name: "Count", Summary: "Count", Sort: func(a, b *Measure) bool { return a.Count > b.Count }},
 		&Column{Name: "Total", Summary: "Total", Sort: func(a, b *Measure) bool { return a.Total > b.Total }},
 		&Column{Name: "Mean", Summary: "Mean", Sort: func(a, b *Measure) bool { return a.Mean > b.Mean }},
-		&Column{Name: "Min", Summary: "Minimum(0 Percentile)", Sort: func(a, b *Measure) bool { return a.Min > b.Min }},
-		&Column{Name: "P50", Summary: "Median(50 Percentile)", Sort: func(a, b *Measure) bool { return a.P50 > b.P50 }},
-		&Column{Name: "P90", Summary: "90 Percentile", Sort: func(a, b *Measure) bool { return a.P90 > b.P90 }},
-		&Column{Name: "P95", Summary: "95 Percentile", Sort: func(a, b *Measure) bool { return a.P95 > b.P95 }},
-		&Column{Name: "P99", Summary: "99 Percentile", Sort: func(a, b *Measure) bool { return a.P99 > b.P99 }},
+		&Column{Name: "Min"},
+		&Column{Name: "P50"},
+		&Column{Name: "P90"},
+		&Column{Name: "P95"},
+		&Column{Name: "P99"},
 		&Column{Name: "Max", Summary: "Maximum(100 Percentile)", Sort: func(a, b *Measure) bool { return a.Max > b.Max }},
 	}
 )
@@ -232,9 +232,11 @@ func main() {
 	}
 
 	for _, column := range columns {
-		fmt.Printf("Sort By %s\n", column.Summary)
-		By(column.Sort).Sort(measures)
-		showMeasures(measures)
-		fmt.Println()
+		if column.Sort != nil {
+			fmt.Printf("Sort By %s\n", column.Summary)
+			By(column.Sort).Sort(measures)
+			showMeasures(measures)
+			fmt.Println()
+		}
 	}
 }
