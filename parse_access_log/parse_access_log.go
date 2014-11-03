@@ -41,16 +41,17 @@ var (
 )
 
 type Measure struct {
-	Url   string
-	Count int
-	Total float64
-	Mean  float64
-	Min   float64
-	P50   float64
-	P90   float64
-	P95   float64
-	P99   float64
-	Max   float64
+	Url    string
+	Count  int
+	Total  float64
+	Mean   float64
+	Stddev float64
+	Min    float64
+	P50    float64
+	P90    float64
+	P95    float64
+	P99    float64
+	Max    float64
 }
 
 type By func(a, b *Measure) bool
@@ -91,6 +92,7 @@ var (
 		&Column{Name: "Count", Summary: "Count", Sort: func(a, b *Measure) bool { return a.Count > b.Count }},
 		&Column{Name: "Total", Summary: "Total", Sort: func(a, b *Measure) bool { return a.Total > b.Total }},
 		&Column{Name: "Mean", Summary: "Mean", Sort: func(a, b *Measure) bool { return a.Mean > b.Mean }},
+		&Column{Name: "Stddev", Summary: "Standard Deviation", Sort: func(a, b *Measure) bool { return a.Stddev > b.Stddev }},
 		&Column{Name: "Min"},
 		&Column{Name: "P50"},
 		&Column{Name: "P90"},
@@ -163,6 +165,9 @@ func showMeasures(measures []*Measure) {
 		case "Mean":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", meanWidth), column.Name)
 			format += fmt.Sprintf("%%%d.%df  ", meanWidth, EFFECTIVE_DIGIT*2)
+		case "Stddev":
+			fmt.Printf(fmt.Sprintf("%%%ds  ", meanWidth), column.Name)
+			format += fmt.Sprintf("%%%d.%df  ", meanWidth, EFFECTIVE_DIGIT*2)
 		default:
 			fmt.Printf(fmt.Sprintf("%%%ds  ", maxWidth), column.Name)
 			format += fmt.Sprintf("%%%d.%df  ", maxWidth, EFFECTIVE_DIGIT)
@@ -173,7 +178,7 @@ func showMeasures(measures []*Measure) {
 
 	for i := 0; i < topCount; i++ {
 		m := measures[i]
-		fmt.Printf(format, m.Count, m.Total, m.Mean, m.Min, m.P50, m.P90, m.P95, m.P99, m.Max, m.Url)
+		fmt.Printf(format, m.Count, m.Total, m.Mean, m.Stddev, m.Min, m.P50, m.P90, m.P95, m.P99, m.Max, m.Url)
 	}
 }
 
@@ -212,11 +217,13 @@ func main() {
 
 	ch := make(chan *Time)
 	totals := make(map[string]float64)
+	totalSqs := make(map[string]float64)
 	times := make(map[string][]float64)
 	var allTimes []*Time
 	go func() {
 		for time := range ch {
 			totals[time.Url] += time.Time
+			totalSqs[time.Url] += time.Time * time.Time
 			times[time.Url] = append(times[time.Url], time.Time)
 			allTimes = append(allTimes, time)
 		}
@@ -261,16 +268,17 @@ func main() {
 		sort.Float64s(sorted)
 		count := len(sorted)
 		measure := &Measure{
-			Url:   url,
-			Count: count,
-			Total: total,
-			Mean:  totals[url] / float64(count),
-			Min:   sorted[0],
-			P50:   sorted[int(count*50/100)],
-			P90:   sorted[int(count*90/100)],
-			P95:   sorted[int(count*95/100)],
-			P99:   sorted[int(count*99/100)],
-			Max:   sorted[count-1],
+			Url:    url,
+			Count:  count,
+			Total:  total,
+			Mean:   totals[url] / float64(count),
+			Stddev: math.Sqrt(totalSqs[url] / float64(count)),
+			Min:    sorted[0],
+			P50:    sorted[int(count*50/100)],
+			P90:    sorted[int(count*90/100)],
+			P95:    sorted[int(count*95/100)],
+			P99:    sorted[int(count*99/100)],
+			Max:    sorted[count-1],
 		}
 		measures = append(measures, measure)
 	}
