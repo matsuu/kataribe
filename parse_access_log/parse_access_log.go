@@ -217,15 +217,20 @@ func main() {
 
 	ch := make(chan *Time)
 	totals := make(map[string]float64)
-	totalSqs := make(map[string]float64)
+	stddevs := make(map[string]float64)
 	times := make(map[string][]float64)
 	var allTimes []*Time
 	go func() {
 		for time := range ch {
 			totals[time.Url] += time.Time
-			totalSqs[time.Url] += time.Time * time.Time
 			times[time.Url] = append(times[time.Url], time.Time)
 			allTimes = append(allTimes, time)
+		}
+		for url, total := range totals {
+			mean := total / float64(len(times[url]))
+			for _, t := range times[url] {
+				stddevs[url] += (t - mean) * (t - mean)
+			}
 		}
 	}()
 
@@ -272,7 +277,7 @@ func main() {
 			Count:  count,
 			Total:  total,
 			Mean:   totals[url] / float64(count),
-			Stddev: math.Sqrt(totalSqs[url] / float64(count)),
+			Stddev: math.Sqrt(stddevs[url] / float64(count)),
 			Min:    sorted[0],
 			P50:    sorted[int(count*50/100)],
 			P90:    sorted[int(count*90/100)],
