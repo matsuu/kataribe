@@ -1,9 +1,7 @@
-kataribe
+Kataribe
 ========
 
-Nginx/Apache log profiler
-
-## Demo
+Nginx/Apache Log Profiler
 
 ## Usage
 
