@@ -24,10 +24,11 @@ const (
 	// SCALE = -6
 	// EFFECTIVE_DIGIT = 6
 
-	MIN_COUNT_WIDTH = 5 // for title
-	MIN_TOTAL_WIDTH = 2 + EFFECTIVE_DIGIT
-	MIN_MEAN_WIDTH  = 2 + EFFECTIVE_DIGIT*2
-	MIN_MAX_WIDTH   = 2 + EFFECTIVE_DIGIT
+	MIN_COUNT_WIDTH  = 5 // for title
+	MIN_TOTAL_WIDTH  = 2 + EFFECTIVE_DIGIT
+	MIN_MEAN_WIDTH   = 2 + EFFECTIVE_DIGIT*2
+	MIN_MAX_WIDTH    = 2 + EFFECTIVE_DIGIT
+	MIN_STATUS_WIDTH = 3 // for title
 )
 
 var (
@@ -52,6 +53,10 @@ type Measure struct {
 	P95    float64
 	P99    float64
 	Max    float64
+	S2xx   int
+	S3xx   int
+	S4xx   int
+	S5xx   int
 }
 
 type By func(a, b *Measure) bool
@@ -99,14 +104,19 @@ var (
 		&Column{Name: "P95"},
 		&Column{Name: "P99"},
 		&Column{Name: "Max", Summary: "Maximum(100 Percentile)", Sort: func(a, b *Measure) bool { return a.Max > b.Max }},
+		&Column{Name: "2xx"},
+		&Column{Name: "3xx"},
+		&Column{Name: "4xx"},
+		&Column{Name: "5xx"},
 	}
 )
 
 type ByTime []*Time
 
 type Time struct {
-	Url  string
-	Time float64
+	Url        string
+	Time       float64
+	StatusCode int
 }
 
 func (a ByTime) Len() int           { return len(a) }
@@ -132,6 +142,10 @@ func showMeasures(measures []*Measure) {
 	totalWidth := MIN_TOTAL_WIDTH
 	meanWidth := MIN_MEAN_WIDTH
 	maxWidth := MIN_MAX_WIDTH
+	s2xxWidth := MIN_STATUS_WIDTH
+	s3xxWidth := MIN_STATUS_WIDTH
+	s4xxWidth := MIN_STATUS_WIDTH
+	s5xxWidth := MIN_STATUS_WIDTH
 
 	for i := 0; i < topCount; i++ {
 		var w int
@@ -151,6 +165,22 @@ func showMeasures(measures []*Measure) {
 		if maxWidth < w {
 			maxWidth = w
 		}
+		w = getIntegerDigitWidth(float64(measures[i].S2xx))
+		if s2xxWidth < w {
+			s2xxWidth = w
+		}
+		w = getIntegerDigitWidth(float64(measures[i].S3xx))
+		if s3xxWidth < w {
+			s3xxWidth = w
+		}
+		w = getIntegerDigitWidth(float64(measures[i].S4xx))
+		if s4xxWidth < w {
+			s4xxWidth = w
+		}
+		w = getIntegerDigitWidth(float64(measures[i].S5xx))
+		if s5xxWidth < w {
+			s5xxWidth = w
+		}
 	}
 
 	var format string
@@ -168,6 +198,18 @@ func showMeasures(measures []*Measure) {
 		case "Stddev":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", meanWidth), column.Name)
 			format += fmt.Sprintf("%%%d.%df  ", meanWidth, EFFECTIVE_DIGIT*2)
+		case "2xx":
+			fmt.Printf(fmt.Sprintf("%%%ds  ", s2xxWidth), column.Name)
+			format += fmt.Sprintf("%%%dd  ", s2xxWidth)
+		case "3xx":
+			fmt.Printf(fmt.Sprintf("%%%ds  ", s3xxWidth), column.Name)
+			format += fmt.Sprintf("%%%dd  ", s3xxWidth)
+		case "4xx":
+			fmt.Printf(fmt.Sprintf("%%%ds  ", s4xxWidth), column.Name)
+			format += fmt.Sprintf("%%%dd  ", s4xxWidth)
+		case "5xx":
+			fmt.Printf(fmt.Sprintf("%%%ds  ", s5xxWidth), column.Name)
+			format += fmt.Sprintf("%%%dd  ", s5xxWidth)
 		default:
 			fmt.Printf(fmt.Sprintf("%%%ds  ", maxWidth), column.Name)
 			format += fmt.Sprintf("%%%d.%df  ", maxWidth, EFFECTIVE_DIGIT)
@@ -178,7 +220,7 @@ func showMeasures(measures []*Measure) {
 
 	for i := 0; i < topCount; i++ {
 		m := measures[i]
-		fmt.Printf(format, m.Count, m.Total, m.Mean, m.Stddev, m.Min, m.P50, m.P90, m.P95, m.P99, m.Max, m.Url)
+		fmt.Printf(format, m.Count, m.Total, m.Mean, m.Stddev, m.Min, m.P50, m.P90, m.P95, m.P99, m.Max, m.S2xx, m.S3xx, m.S4xx, m.S5xx, m.Url)
 	}
 }
 
@@ -219,12 +261,17 @@ func main() {
 	totals := make(map[string]float64)
 	stddevs := make(map[string]float64)
 	times := make(map[string][]float64)
+	statusCode := make(map[string][]int)
 	var allTimes []*Time
 	go func() {
 		for time := range ch {
 			totals[time.Url] += time.Time
 			times[time.Url] = append(times[time.Url], time.Time)
 			allTimes = append(allTimes, time)
+			if statusCode[time.Url] == nil {
+				statusCode[time.Url] = make([]int, 6)
+			}
+			statusCode[time.Url][time.StatusCode]++
 		}
 		for url, total := range totals {
 			mean := total / float64(len(times[url]))
@@ -262,7 +309,11 @@ func main() {
 				} else {
 					time = 0.000
 				}
-				ch <- &Time{Url: url, Time: time}
+				statusCode, err := strconv.Atoi(string(s[8][0]))
+				if err != nil {
+					statusCode = 0
+				}
+				ch <- &Time{Url: url, Time: time, StatusCode: statusCode}
 			}
 		}(line)
 	}
@@ -284,6 +335,10 @@ func main() {
 			P95:    sorted[int(count*95/100)],
 			P99:    sorted[int(count*99/100)],
 			Max:    sorted[count-1],
+			S2xx:   statusCode[url][2],
+			S3xx:   statusCode[url][3],
+			S4xx:   statusCode[url][4],
+			S5xx:   statusCode[url][5],
 		}
 		measures = append(measures, measure)
 	}
