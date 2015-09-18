@@ -220,7 +220,11 @@ func main() {
 	stddevs := make(map[string]float64)
 	times := make(map[string][]float64)
 	var allTimes []*Time
+
+	var stddevWg sync.WaitGroup
+	stddevWg.Add(1)
 	go func() {
+		defer stddevWg.Done()
 		for time := range ch {
 			totals[time.Url] += time.Time
 			times[time.Url] = append(times[time.Url], time.Time)
@@ -229,7 +233,7 @@ func main() {
 		for url, total := range totals {
 			mean := total / float64(len(times[url]))
 			for _, t := range times[url] {
-				stddevs[url] += (t - mean) * (t - mean)
+				stddevs[url] += math.Pow(t-mean, 2)
 			}
 		}
 	}()
@@ -238,8 +242,6 @@ func main() {
 	for {
 		line, err := reader.ReadString('\n')
 		if err == io.EOF {
-			wg.Wait()
-			close(ch)
 			break
 		} else if err != nil {
 			panic(err)
@@ -266,6 +268,9 @@ func main() {
 			}
 		}(line)
 	}
+	wg.Wait()
+	close(ch)
+	stddevWg.Wait()
 
 	var measures []*Measure
 	for url, total := range totals {
