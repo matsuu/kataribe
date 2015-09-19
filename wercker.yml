@@ -1,0 +1,19 @@
+box: tcnksm/gox
+build: 
+    steps: 
+      - setup-go-workspace
+      - script: 
+            code: "go get -t ./..."
+            name: "go get"
+      - tcnksm/gox:
+            os: "darwin linux"
+            arch: "386 amd64"
+      - tcnksm/zip:
+          input: $WERCKER_OUTPUT_DIR/pkg
+          output: $WERCKER_OUTPUT_DIR/dist
+deploy:
+    steps: 
+        - tcnksm/ghr: 
+            input: dist
+            replace: true
+            token: $GITHUB_TOKEN
