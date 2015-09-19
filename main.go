@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
+	"github.com/BurntSushi/toml"
 	"io"
 	"math"
 	"os"
@@ -17,29 +19,24 @@ import (
 
 const (
 	useProfile = false
-	// for Nginx($request_time)
-	SCALE           = 0
-	EFFECTIVE_DIGIT = 3
-	// for Apache(%D)
-	// SCALE = -6
-	// EFFECTIVE_DIGIT = 6
-
-	MIN_COUNT_WIDTH  = 5 // for title
-	MIN_TOTAL_WIDTH  = 2 + EFFECTIVE_DIGIT
-	MIN_MEAN_WIDTH   = 2 + EFFECTIVE_DIGIT*2
-	MIN_MAX_WIDTH    = 2 + EFFECTIVE_DIGIT
-	MIN_STATUS_WIDTH = 3 // for title
 )
 
-var (
-	topCount      = 10
-	allCount      = 37
-	urlNormalizes = []string{
-		"^GET /memo/[0-9]+$",
-		"^GET /stylesheets/",
-		"^GET /images/",
-	}
-)
+type tomlConfig struct {
+	RankingCount   int `toml:"ranking_count"`
+	SlowCount      int `toml:"slow_count"`
+	Scale          int
+	EffectiveDigit int    `toml:"effective_digit"`
+	LogFormat      string `toml:"log_format"`
+	RequestIndex   int    `toml:"request_index"`
+	StatusIndex    int    `toml:"status_index"`
+	DurationIndex  int    `toml:"duration_index"`
+	Bundles        map[string]bundleConfig
+}
+
+type bundleConfig struct {
+	Name   string
+	Regexp string
+}
 
 type Measure struct {
 	Url    string
@@ -138,7 +135,13 @@ func getIntegerDigitWidth(f float64) int {
 }
 
 func showMeasures(measures []*Measure) {
-	countWidth := MIN_COUNT_WIDTH
+	MIN_COUNT_WIDTH := 5 // for title
+	MIN_TOTAL_WIDTH := 2 + config.EffectiveDigit
+	MIN_MEAN_WIDTH := 2 + config.EffectiveDigit*2
+	MIN_MAX_WIDTH := 2 + config.EffectiveDigit
+	MIN_STATUS_WIDTH := 3 // for title
+
+	countWidth := MIN_COUNT_WIDTH // for title
 	totalWidth := MIN_TOTAL_WIDTH
 	meanWidth := MIN_MEAN_WIDTH
 	maxWidth := MIN_MAX_WIDTH
@@ -147,21 +150,25 @@ func showMeasures(measures []*Measure) {
 	s4xxWidth := MIN_STATUS_WIDTH
 	s5xxWidth := MIN_STATUS_WIDTH
 
-	for i := 0; i < topCount; i++ {
+	rankingCount := config.RankingCount
+	if len(measures) < rankingCount {
+		rankingCount = len(measures)
+	}
+	for i := 0; i < rankingCount; i++ {
 		var w int
 		w = getIntegerDigitWidth(float64(measures[i].Count))
 		if countWidth < w {
 			countWidth = w
 		}
-		w = getIntegerDigitWidth(measures[i].Total) + 1 + EFFECTIVE_DIGIT
+		w = getIntegerDigitWidth(measures[i].Total) + 1 + config.EffectiveDigit
 		if totalWidth < w {
 			totalWidth = w
 		}
-		w = getIntegerDigitWidth(measures[i].Mean) + 1 + EFFECTIVE_DIGIT*2
+		w = getIntegerDigitWidth(measures[i].Mean) + 1 + config.EffectiveDigit*2
 		if meanWidth < w {
 			meanWidth = w
 		}
-		w = getIntegerDigitWidth(measures[i].Max) + 1 + EFFECTIVE_DIGIT
+		w = getIntegerDigitWidth(measures[i].Max) + 1 + config.EffectiveDigit
 		if maxWidth < w {
 			maxWidth = w
 		}
@@ -191,13 +198,13 @@ func showMeasures(measures []*Measure) {
 			format += fmt.Sprintf("%%%dd  ", countWidth)
 		case "Total":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", totalWidth), column.Name)
-			format += fmt.Sprintf("%%%d.%df  ", totalWidth, EFFECTIVE_DIGIT)
+			format += fmt.Sprintf("%%%d.%df  ", totalWidth, config.EffectiveDigit)
 		case "Mean":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", meanWidth), column.Name)
-			format += fmt.Sprintf("%%%d.%df  ", meanWidth, EFFECTIVE_DIGIT*2)
+			format += fmt.Sprintf("%%%d.%df  ", meanWidth, config.EffectiveDigit*2)
 		case "Stddev":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", meanWidth), column.Name)
-			format += fmt.Sprintf("%%%d.%df  ", meanWidth, EFFECTIVE_DIGIT*2)
+			format += fmt.Sprintf("%%%d.%df  ", meanWidth, config.EffectiveDigit*2)
 		case "2xx":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", s2xxWidth), column.Name)
 			format += fmt.Sprintf("%%%dd  ", s2xxWidth)
@@ -212,13 +219,13 @@ func showMeasures(measures []*Measure) {
 			format += fmt.Sprintf("%%%dd  ", s5xxWidth)
 		default:
 			fmt.Printf(fmt.Sprintf("%%%ds  ", maxWidth), column.Name)
-			format += fmt.Sprintf("%%%d.%df  ", maxWidth, EFFECTIVE_DIGIT)
+			format += fmt.Sprintf("%%%d.%df  ", maxWidth, config.EffectiveDigit)
 		}
 	}
-	fmt.Printf("Url/Regexp\n")
+	fmt.Printf("Request\n")
 	format += "%s\n"
 
-	for i := 0; i < topCount; i++ {
+	for i := 0; i < rankingCount; i++ {
 		m := measures[i]
 		fmt.Printf(format, m.Count, m.Total, m.Mean, m.Stddev, m.Min, m.P50, m.P90, m.P95, m.P99, m.Max, m.S2xx, m.S3xx, m.S4xx, m.S5xx, m.Url)
 	}
@@ -226,16 +233,30 @@ func showMeasures(measures []*Measure) {
 
 func showTop(allTimes []*Time) {
 	sort.Sort(ByTime(allTimes))
-	if len(allTimes) < allCount {
-		allCount = len(allTimes)
+	slowCount := config.SlowCount
+	if len(allTimes) < slowCount {
+		slowCount = len(allTimes)
 	}
+	fmt.Printf("TOP %d Slow Requests\n", slowCount)
 
-	iWidth := getIntegerDigitWidth(float64(allCount))
-	topWidth := getIntegerDigitWidth(allTimes[0].Time) + 1 + EFFECTIVE_DIGIT
-	f := fmt.Sprintf("%%%dd  %%%d.%df  %%s\n", iWidth, topWidth, EFFECTIVE_DIGIT)
-	for i := 0; i < allCount; i++ {
+	iWidth := getIntegerDigitWidth(float64(slowCount))
+	topWidth := getIntegerDigitWidth(allTimes[0].Time) + 1 + config.EffectiveDigit
+	f := fmt.Sprintf("%%%dd  %%%d.%df  %%s\n", iWidth, topWidth, config.EffectiveDigit)
+	for i := 0; i < slowCount; i++ {
 		fmt.Printf(f, i+1, allTimes[i].Time, allTimes[i].Url)
 	}
+}
+
+var configFile string
+var config tomlConfig
+
+func init() {
+	const (
+		defaultConfigFile = "kataribe.toml"
+		usage             = "configuration file"
+	)
+	flag.StringVar(&configFile, "conf", defaultConfigFile, usage)
+	flag.StringVar(&configFile, "f", defaultConfigFile, usage+" (shorthand)")
 }
 
 func main() {
@@ -248,13 +269,18 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	reader := bufio.NewReaderSize(os.Stdin, 4096)
-	scale := math.Pow10(SCALE)
 
-	var urlNormalizeRegexps []*regexp.Regexp
-	for _, str := range urlNormalizes {
-		re := regexp.MustCompile(str)
-		urlNormalizeRegexps = append(urlNormalizeRegexps, re)
+	if _, err := toml.DecodeFile(configFile, &config); err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	reader := bufio.NewReaderSize(os.Stdin, 4096)
+	scale := math.Pow10(config.Scale)
+
+	urlNormalizeRegexps := make(map[string]*regexp.Regexp)
+	for _, bundle := range config.Bundles {
+		urlNormalizeRegexps[bundle.Name] = regexp.MustCompile(bundle.Regexp)
 	}
 
 	ch := make(chan *Time)
@@ -285,6 +311,8 @@ func main() {
 		}
 	}()
 
+	logParser := regexp.MustCompile(config.LogFormat)
+
 	var wg sync.WaitGroup
 	for {
 		line, err := reader.ReadString('\n')
@@ -296,22 +324,23 @@ func main() {
 		wg.Add(1)
 		go func(line string) {
 			defer wg.Done()
-			s := strings.Split(line, " ")
-			if len(s) >= 7 {
-				url := strings.TrimLeft(strings.Join(s[5:7], " "), "\"")
-				for _, re := range urlNormalizeRegexps {
+			submatch := logParser.FindAllStringSubmatch(strings.TrimSpace(line), -1)
+			if len(submatch) > 0 {
+				s := submatch[0]
+				url := s[config.RequestIndex]
+				for name, re := range urlNormalizeRegexps {
 					if re.MatchString(url) {
-						url = re.String()
+						url = name
 						break
 					}
 				}
-				time, err := strconv.ParseFloat(strings.Trim(s[len(s)-1], "\r\n"), 10)
+				time, err := strconv.ParseFloat(s[config.DurationIndex], 10)
 				if err == nil {
 					time = time * scale
 				} else {
 					time = 0.000
 				}
-				statusCode, err := strconv.Atoi(string(s[8][0]))
+				statusCode, err := strconv.Atoi(string(s[config.StatusIndex][0]))
 				if err != nil {
 					statusCode = 0
 				}
@@ -347,9 +376,6 @@ func main() {
 		}
 		measures = append(measures, measure)
 	}
-	if len(measures) < topCount {
-		topCount = len(measures)
-	}
 
 	for _, column := range columns {
 		if column.Sort != nil {
@@ -360,6 +386,5 @@ func main() {
 		}
 	}
 
-	fmt.Printf("TOP %d Slow Requests\n", allCount)
 	showTop(allTimes)
 }
