@@ -15,7 +15,7 @@ CustomLog logs/access_log with_time
 log_format with_time '$remote_addr - $remote_user [$time_local] '
                      '"$request" $status $body_bytes_sent '
                      '"$http_referer" "$http_user_agent" $request_time';
-access_log /var/log/nginx/access.log with_request_time
+access_log /var/log/nginx/access.log with_time
 ```
 - Edit kataribe.toml
 - Pass access log to kataribe by stdin
