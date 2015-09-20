@@ -1,11 +1,16 @@
 box: tcnksm/gox
 build: 
     steps: 
+      - script:
+          name: "install zip"
+          code: |
+            sudo apt-get update -y
+            sudo apt-get install -y zip
       - setup-go-workspace
       - script: 
-            name: "go get"
-            code: |
-              go get -t ./...
+          name: "go get"
+          code: |
+            go get -t ./...
       - tcnksm/gox
       - tcnksm/zip:
           input: ${WERCKER_OUTPUT_DIR}/pkg
