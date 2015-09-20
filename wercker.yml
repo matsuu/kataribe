@@ -12,6 +12,10 @@ build:
           code: |
             go get -t ./...
       - tcnksm/gox
+      - script:
+          name: "copy necessary files"
+          code: |
+            find ${WERCKER_OUTPUT_DIR}/pkg -mindepth 1 -maxdepth 1 -type d -exec cp -p LICENSE README.md kataribe.toml {} \;
       - tcnksm/zip:
           input: ${WERCKER_OUTPUT_DIR}/pkg
           output: ${WERCKER_OUTPUT_DIR}/dist
