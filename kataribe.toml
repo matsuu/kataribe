@@ -27,7 +27,7 @@ duration_index = 10
   # You can aggregate requests by regular expression
   [bundles.memo]
   name = "GET /memo/*"
-  regexp = '^GET /memo/[0-9]+$'
+  regexp = '^GET /memo/[0-9]+ '
 
   [bundles.stylesheets]
   name = "GET /stylesheets/*"
