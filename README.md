@@ -1,26 +1,42 @@
 Kataribe
 ========
 
-Nginx/Apache Log Profiler
+Nginx/Apache/Varnishncsa Log Profiler
 
-## Usage
+## Prerequisites
 
-- Apache: Add %D to [LogFormat](http://httpd.apache.org/docs/current/mod/mod_log_config.html#logformat)
+### Apache
+
+Add %D to [LogFormat](http://httpd.apache.org/docs/current/mod/mod_log_config.html#logformat).
 ```
 LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-agent}i\" %D" with_time
 CustomLog logs/access_log with_time
 ```
-- Nginx: Add $request\_time to [log\_format](http://nginx.org/en/docs/http/ngx_http_log_module.html#log_format)
+
+### Nginx
+
+Add $request\_time to [log\_format](http://nginx.org/en/docs/http/ngx_http_log_module.html#log_format).
 ```
 log_format with_time '$remote_addr - $remote_user [$time_local] '
                      '"$request" $status $body_bytes_sent '
                      '"$http_referer" "$http_user_agent" $request_time';
 access_log /var/log/nginx/access.log with_time
 ```
+
+### Varnishncsa
+
+Add %D to [varnishncsa -F option](https://www.varnish-cache.org/docs/trunk/reference/varnishncsa.html).
+```
+varnishncsa -a -w $logfile -D -P $pidfile -F '%h %l %u %t "%r" %s %b "%{Referer}i" "%{User-agent}i" %D'
+```
+
+## Usage
+
+- Download [release file](https://github.com/matsuu/kataribe/releases)
 - Edit kataribe.toml
 - Pass access log to kataribe by stdin
 ```
-# cat /var/log/nginx/access.log | ./kataribe
+# cat /var/log/nginx/access.log | ./kataribe [-f kataribe.toml]
 ```
 
 ## Example
