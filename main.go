@@ -257,6 +257,7 @@ func init() {
 	)
 	flag.StringVar(&configFile, "conf", defaultConfigFile, usage)
 	flag.StringVar(&configFile, "f", defaultConfigFile, usage+" (shorthand)")
+	flag.Parse()
 }
 
 func main() {
