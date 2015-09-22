@@ -24,5 +24,4 @@ deploy:
         - tcnksm/ghr: 
             token: $GITHUB_TOKEN
             input: dist
-            pre_release: true
             replace: true
