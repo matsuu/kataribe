@@ -4,6 +4,15 @@ ranking_count = 20
 # Top Slow Requests
 slow_count = 37
 
+# Show Standard Deviation column
+show_stddev = true
+
+# Show HTTP Status Code columns
+show_status_code = true
+
+# Percentiles
+percentiles = [ 50.0, 90.0, 95.0, 99.0 ]
+
 # for Nginx($request_time)
 scale = 0
 effective_digit = 3

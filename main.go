@@ -22,8 +22,11 @@ const (
 )
 
 type tomlConfig struct {
-	RankingCount   int `toml:"ranking_count"`
-	SlowCount      int `toml:"slow_count"`
+	RankingCount   int  `toml:"ranking_count"`
+	SlowCount      int  `toml:"slow_count"`
+	ShowStdDev     bool `toml:"show_stddev"`
+	ShowStatusCode bool `toml:"show_status_code"`
+	Percentiles    []float64
 	Scale          int
 	EffectiveDigit int    `toml:"effective_digit"`
 	LogFormat      string `toml:"log_format"`
@@ -39,21 +42,18 @@ type bundleConfig struct {
 }
 
 type Measure struct {
-	Url    string
-	Count  int
-	Total  float64
-	Mean   float64
-	Stddev float64
-	Min    float64
-	P50    float64
-	P90    float64
-	P95    float64
-	P99    float64
-	Max    float64
-	S2xx   int
-	S3xx   int
-	S4xx   int
-	S5xx   int
+	Url         string
+	Count       int
+	Total       float64
+	Mean        float64
+	Stddev      float64
+	Min         float64
+	Percentiles []float64
+	Max         float64
+	S2xx        int
+	S3xx        int
+	S4xx        int
+	S5xx        int
 }
 
 type By func(a, b *Measure) bool
@@ -90,22 +90,7 @@ type Column struct {
 }
 
 var (
-	columns = []*Column{
-		&Column{Name: "Count", Summary: "Count", Sort: func(a, b *Measure) bool { return a.Count > b.Count }},
-		&Column{Name: "Total", Summary: "Total", Sort: func(a, b *Measure) bool { return a.Total > b.Total }},
-		&Column{Name: "Mean", Summary: "Mean", Sort: func(a, b *Measure) bool { return a.Mean > b.Mean }},
-		&Column{Name: "Stddev", Summary: "Standard Deviation", Sort: func(a, b *Measure) bool { return a.Stddev > b.Stddev }},
-		&Column{Name: "Min"},
-		&Column{Name: "P50"},
-		&Column{Name: "P90"},
-		&Column{Name: "P95"},
-		&Column{Name: "P99"},
-		&Column{Name: "Max", Summary: "Maximum(100 Percentile)", Sort: func(a, b *Measure) bool { return a.Max > b.Max }},
-		&Column{Name: "2xx"},
-		&Column{Name: "3xx"},
-		&Column{Name: "4xx"},
-		&Column{Name: "5xx"},
-	}
+	columns []*Column
 )
 
 type ByTime []*Time
@@ -119,6 +104,27 @@ type Time struct {
 func (a ByTime) Len() int           { return len(a) }
 func (a ByTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByTime) Less(i, j int) bool { return a[i].Time > a[j].Time }
+
+func buildColumns() {
+	columns = append(columns, &Column{Name: "Count", Summary: "Count", Sort: func(a, b *Measure) bool { return a.Count > b.Count }})
+	columns = append(columns, &Column{Name: "Total", Summary: "Total", Sort: func(a, b *Measure) bool { return a.Total > b.Total }})
+	columns = append(columns, &Column{Name: "Mean", Summary: "Mean", Sort: func(a, b *Measure) bool { return a.Mean > b.Mean }})
+	if config.ShowStdDev {
+		columns = append(columns, &Column{Name: "Stddev", Summary: "Standard Deviation", Sort: func(a, b *Measure) bool { return a.Stddev > b.Stddev }})
+	}
+	columns = append(columns, &Column{Name: "Min"})
+	for _, p := range config.Percentiles {
+		name := fmt.Sprintf("P%2.1f", p)
+		columns = append(columns, &Column{Name: name})
+	}
+	columns = append(columns, &Column{Name: "Max", Summary: "Maximum(100 Percentile)", Sort: func(a, b *Measure) bool { return a.Max > b.Max }})
+	if config.ShowStatusCode {
+		columns = append(columns, &Column{Name: "2xx"})
+		columns = append(columns, &Column{Name: "3xx"})
+		columns = append(columns, &Column{Name: "4xx"})
+		columns = append(columns, &Column{Name: "5xx"})
+	}
+}
 
 func getIntegerDigitWidth(f float64) int {
 	var w int
@@ -190,44 +196,72 @@ func showMeasures(measures []*Measure) {
 		}
 	}
 
-	var format string
+	var formats []string
 	for _, column := range columns {
 		switch column.Name {
 		case "Count":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", countWidth), column.Name)
-			format += fmt.Sprintf("%%%dd  ", countWidth)
+			formats = append(formats, fmt.Sprintf("%%%dd  ", countWidth))
 		case "Total":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", totalWidth), column.Name)
-			format += fmt.Sprintf("%%%d.%df  ", totalWidth, config.EffectiveDigit)
+			formats = append(formats, fmt.Sprintf("%%%d.%df  ", totalWidth, config.EffectiveDigit))
 		case "Mean":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", meanWidth), column.Name)
-			format += fmt.Sprintf("%%%d.%df  ", meanWidth, config.EffectiveDigit*2)
+			formats = append(formats, fmt.Sprintf("%%%d.%df  ", meanWidth, config.EffectiveDigit*2))
 		case "Stddev":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", meanWidth), column.Name)
-			format += fmt.Sprintf("%%%d.%df  ", meanWidth, config.EffectiveDigit*2)
+			formats = append(formats, fmt.Sprintf("%%%d.%df  ", meanWidth, config.EffectiveDigit*2))
 		case "2xx":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", s2xxWidth), column.Name)
-			format += fmt.Sprintf("%%%dd  ", s2xxWidth)
+			formats = append(formats, fmt.Sprintf("%%%dd  ", s2xxWidth))
 		case "3xx":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", s3xxWidth), column.Name)
-			format += fmt.Sprintf("%%%dd  ", s3xxWidth)
+			formats = append(formats, fmt.Sprintf("%%%dd  ", s3xxWidth))
 		case "4xx":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", s4xxWidth), column.Name)
-			format += fmt.Sprintf("%%%dd  ", s4xxWidth)
+			formats = append(formats, fmt.Sprintf("%%%dd  ", s4xxWidth))
 		case "5xx":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", s5xxWidth), column.Name)
-			format += fmt.Sprintf("%%%dd  ", s5xxWidth)
+			formats = append(formats, fmt.Sprintf("%%%dd  ", s5xxWidth))
 		default:
 			fmt.Printf(fmt.Sprintf("%%%ds  ", maxWidth), column.Name)
-			format += fmt.Sprintf("%%%d.%df  ", maxWidth, config.EffectiveDigit)
+			formats = append(formats, fmt.Sprintf("%%%d.%df  ", maxWidth, config.EffectiveDigit))
 		}
 	}
 	fmt.Printf("Request\n")
-	format += "%s\n"
 
-	for i := 0; i < rankingCount; i++ {
-		m := measures[i]
-		fmt.Printf(format, m.Count, m.Total, m.Mean, m.Stddev, m.Min, m.P50, m.P90, m.P95, m.P99, m.Max, m.S2xx, m.S3xx, m.S4xx, m.S5xx, m.Url)
+	for r := 0; r < rankingCount; r++ {
+		m := measures[r]
+		c := 0
+		fmt.Printf(formats[c], m.Count)
+		c++
+		fmt.Printf(formats[c], m.Total)
+		c++
+		fmt.Printf(formats[c], m.Mean)
+		c++
+		if config.ShowStdDev {
+			fmt.Printf(formats[c], m.Stddev)
+			c++
+		}
+		fmt.Printf(formats[c], m.Min)
+		c++
+		for i := range config.Percentiles {
+			fmt.Printf(formats[c], m.Percentiles[i])
+			c++
+		}
+		fmt.Printf(formats[c], m.Max)
+		c++
+		if config.ShowStatusCode {
+			fmt.Printf(formats[c], m.S2xx)
+			c++
+			fmt.Printf(formats[c], m.S3xx)
+			c++
+			fmt.Printf(formats[c], m.S4xx)
+			c++
+			fmt.Printf(formats[c], m.S5xx)
+			c++
+		}
+		fmt.Printf("%s\n", m.Url)
 	}
 }
 
@@ -357,26 +391,29 @@ func main() {
 		sorted := times[url]
 		sort.Float64s(sorted)
 		count := len(sorted)
+		var percentiles []float64
+		for _, p := range config.Percentiles {
+			percentiles = append(percentiles, sorted[int(float64(count)*p/100)])
+		}
+
 		measure := &Measure{
-			Url:    url,
-			Count:  count,
-			Total:  total,
-			Mean:   totals[url] / float64(count),
-			Stddev: math.Sqrt(stddevs[url] / float64(count)),
-			Min:    sorted[0],
-			P50:    sorted[int(count*50/100)],
-			P90:    sorted[int(count*90/100)],
-			P95:    sorted[int(count*95/100)],
-			P99:    sorted[int(count*99/100)],
-			Max:    sorted[count-1],
-			S2xx:   statusCode[url][2],
-			S3xx:   statusCode[url][3],
-			S4xx:   statusCode[url][4],
-			S5xx:   statusCode[url][5],
+			Url:         url,
+			Count:       count,
+			Total:       total,
+			Mean:        totals[url] / float64(count),
+			Stddev:      math.Sqrt(stddevs[url] / float64(count)),
+			Min:         sorted[0],
+			Percentiles: percentiles,
+			Max:         sorted[count-1],
+			S2xx:        statusCode[url][2],
+			S3xx:        statusCode[url][3],
+			S4xx:        statusCode[url][4],
+			S5xx:        statusCode[url][5],
 		}
 		measures = append(measures, measure)
 	}
 
+	buildColumns()
 	for _, column := range columns {
 		if column.Sort != nil {
 			fmt.Printf("Top %d Sort By %s\n", config.RankingCount, column.Summary)
