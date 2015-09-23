@@ -379,7 +379,7 @@ func main() {
 
 	for _, column := range columns {
 		if column.Sort != nil {
-			fmt.Printf("Sort By %s\n", column.Summary)
+			fmt.Printf("Top %d Sort By %s\n", config.RankingCount, column.Summary)
 			By(column.Sort).Sort(measures)
 			showMeasures(measures)
 			fmt.Println()

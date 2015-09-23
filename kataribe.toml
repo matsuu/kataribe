@@ -1,5 +1,5 @@
 # Top Ranking Group By Request
-ranking_count = 10
+ranking_count = 20
 
 # Top Slow Requests
 slow_count = 37
