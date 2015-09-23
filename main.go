@@ -291,10 +291,8 @@ func main() {
 	statusCode := make(map[string][]int)
 	var allTimes []*Time
 
-	var stddevWg sync.WaitGroup
-	stddevWg.Add(1)
+	done := make(chan struct{})
 	go func() {
-		defer stddevWg.Done()
 		for time := range ch {
 			totals[time.Url] += time.Time
 			times[time.Url] = append(times[time.Url], time.Time)
@@ -310,6 +308,7 @@ func main() {
 				stddevs[url] += math.Pow(t-mean, 2)
 			}
 		}
+		done <- struct{}{}
 	}()
 
 	logParser := regexp.MustCompile(config.LogFormat)
@@ -351,7 +350,7 @@ func main() {
 	}
 	wg.Wait()
 	close(ch)
-	stddevWg.Wait()
+	<-done
 
 	var measures []*Measure
 	for url, total := range totals {
