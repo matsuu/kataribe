@@ -30,6 +30,14 @@ Add %D to [varnishncsa -F option](https://www.varnish-cache.org/docs/trunk/refer
 varnishncsa -a -w $logfile -D -P $pidfile -F '%h %l %u %t "%r" %s %b "%{Referer}i" "%{User-agent}i" %D'
 ```
 
+### Rack
+
+Add Rack::CommonLogger to config.ru.
+```
+logger = Logger.new("/tmp/app.log")
+use Rack::CommonLogger, logger
+```
+
 ## Usage
 
 - Download [release file](https://github.com/matsuu/kataribe/releases)
