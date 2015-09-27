@@ -21,6 +21,11 @@ effective_digit = 3
 #scale = -6
 #effective_digit = 6
 
+# for Rack(Rack::CommonLogger)
+#scale = 0
+#effective_digit = 4
+
+
 # combined + duration
 # Nginx example: '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_time'
 # Apache example: "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" %D"
@@ -30,6 +35,12 @@ log_format = '^([^ ]+) ([^ ]+) ([^ ]+) \[([^\]]+)\] "((?:\\"|[^"])*)" (\d+) (\d+
 request_index = 5
 status_index = 6
 duration_index = 10
+
+# Rack example: use Rack::CommonLogger, Logger.new("/tmp/app.log")
+#log_format = '^([^ ]+) ([^ ]+) ([^ ]+) \[([^\]]+)\] "((?:\\"|[^"])*)" (\d+) (\d+|-) ([0-9.]+)$'
+#request_index = 5
+#status_index = 6
+#duration_index = 8
 
 [bundles]
 
