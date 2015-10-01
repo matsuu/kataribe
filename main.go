@@ -10,15 +10,10 @@ import (
 	"os"
 	"regexp"
 	"runtime"
-	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
-)
-
-const (
-	useProfile = false
 )
 
 type tomlConfig struct {
@@ -296,14 +291,6 @@ func init() {
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	if useProfile {
-		f, err := os.Create("/tmp/parse_access_log.prof")
-		if err != nil {
-			panic(err)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
 
 	if _, err := toml.DecodeFile(configFile, &config); err != nil {
 		fmt.Println(err)
