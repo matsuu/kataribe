@@ -28,7 +28,8 @@ type tomlConfig struct {
 	RequestIndex   int    `toml:"request_index"`
 	StatusIndex    int    `toml:"status_index"`
 	DurationIndex  int    `toml:"duration_index"`
-	Bundles        map[string]bundleConfig
+	Bundle         []bundleConfig
+	Bundles        map[string]bundleConfig // for backward compatibility
 }
 
 type bundleConfig struct {
@@ -300,10 +301,30 @@ func main() {
 	reader := bufio.NewReaderSize(os.Stdin, 4096)
 	scale := math.Pow10(config.Scale)
 
+	done := make(chan struct{})
+
 	urlNormalizeRegexps := make(map[string]*regexp.Regexp)
-	for _, bundle := range config.Bundles {
-		urlNormalizeRegexps[bundle.Name] = regexp.MustCompile(bundle.Regexp)
+
+	chBundle := make(chan bundleConfig)
+	go func() {
+		for bundle := range chBundle {
+			name := bundle.Name
+			if name == "" {
+				name = bundle.Regexp
+			}
+			urlNormalizeRegexps[name] = regexp.MustCompile(bundle.Regexp)
+		}
+		done <- struct{}{}
+	}()
+
+	for _, b := range config.Bundle {
+		chBundle <- b
 	}
+	for _, b := range config.Bundles {
+		chBundle <- b
+	}
+	close(chBundle)
+	<-done
 
 	ch := make(chan *Time)
 	totals := make(map[string]float64)
@@ -312,7 +333,6 @@ func main() {
 	statusCode := make(map[string][]int)
 	var allTimes []*Time
 
-	done := make(chan struct{})
 	go func() {
 		for time := range ch {
 			totals[time.Url] += time.Time
