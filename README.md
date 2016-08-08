@@ -20,7 +20,7 @@ Add $request\_time to [log\_format](http://nginx.org/en/docs/http/ngx_http_log_m
 log_format with_time '$remote_addr - $remote_user [$time_local] '
                      '"$request" $status $body_bytes_sent '
                      '"$http_referer" "$http_user_agent" $request_time';
-access_log /var/log/nginx/access.log with_time
+access_log /var/log/nginx/access.log with_time;
 ```
 
 ### Varnishncsa
