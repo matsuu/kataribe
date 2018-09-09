@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/BurntSushi/toml"
 	"io"
 	"math"
 	"os"
@@ -14,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/BurntSushi/toml"
 )
 
 type tomlConfig struct {
@@ -93,6 +94,7 @@ type ByTime []*Time
 
 type Time struct {
 	Url        string
+	OriginUrl  string
 	Time       float64
 	StatusCode int
 }
@@ -273,7 +275,7 @@ func showTop(allTimes []*Time) {
 	topWidth := getIntegerDigitWidth(allTimes[0].Time) + 1 + config.EffectiveDigit
 	f := fmt.Sprintf("%%%dd  %%%d.%df  %%s\n", iWidth, topWidth, config.EffectiveDigit)
 	for i := 0; i < slowCount; i++ {
-		fmt.Printf(f, i+1, allTimes[i].Time, allTimes[i].Url)
+		fmt.Printf(f, i+1, allTimes[i].Time, allTimes[i].OriginUrl)
 	}
 }
 
@@ -369,6 +371,7 @@ func main() {
 			if len(submatch) > 0 {
 				s := submatch[0]
 				url := s[config.RequestIndex]
+				originUrl := url
 				for name, re := range urlNormalizeRegexps {
 					if re.MatchString(url) {
 						url = name
@@ -385,7 +388,7 @@ func main() {
 				if err != nil {
 					statusCode = 0
 				}
-				ch <- &Time{Url: url, Time: time, StatusCode: statusCode}
+				ch <- &Time{Url: url, OriginUrl: originUrl, Time: time, StatusCode: statusCode}
 			}
 		}(line)
 	}
