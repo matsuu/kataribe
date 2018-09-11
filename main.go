@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io"
+	"log"
 	"math"
 	"os"
 	"regexp"
@@ -300,7 +300,7 @@ func main() {
 		return
 	}
 
-	reader := bufio.NewReaderSize(os.Stdin, 4096)
+	reader := bufio.NewScanner(os.Stdin)
 	scale := math.Pow10(config.Scale)
 
 	done := make(chan struct{})
@@ -356,42 +356,49 @@ func main() {
 
 	logParser := regexp.MustCompile(config.LogFormat)
 
+	tasks := make(chan string)
+	cpus := runtime.NumCPU()
 	var wg sync.WaitGroup
-	for {
-		line, err := reader.ReadString('\n')
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			panic(err)
-		}
+	for worker := 0; worker < cpus; worker++ {
 		wg.Add(1)
-		go func(line string) {
+		go func() {
 			defer wg.Done()
-			submatch := logParser.FindAllStringSubmatch(strings.TrimSpace(line), -1)
-			if len(submatch) > 0 {
-				s := submatch[0]
-				url := s[config.RequestIndex]
-				originUrl := url
-				for name, re := range urlNormalizeRegexps {
-					if re.MatchString(url) {
-						url = name
-						break
+
+			for line := range tasks {
+				submatch := logParser.FindAllStringSubmatch(strings.TrimSpace(line), -1)
+				if len(submatch) > 0 {
+					s := submatch[0]
+					url := s[config.RequestIndex]
+					originUrl := url
+					for name, re := range urlNormalizeRegexps {
+						if re.MatchString(url) {
+							url = name
+							break
+						}
 					}
+					time, err := strconv.ParseFloat(s[config.DurationIndex], 10)
+					if err == nil {
+						time = time * scale
+					} else {
+						time = 0.000
+					}
+					statusCode, err := strconv.Atoi(string(s[config.StatusIndex][0]))
+					if err != nil {
+						statusCode = 0
+					}
+					ch <- &Time{Url: url, OriginUrl: originUrl, Time: time, StatusCode: statusCode}
 				}
-				time, err := strconv.ParseFloat(s[config.DurationIndex], 10)
-				if err == nil {
-					time = time * scale
-				} else {
-					time = 0.000
-				}
-				statusCode, err := strconv.Atoi(string(s[config.StatusIndex][0]))
-				if err != nil {
-					statusCode = 0
-				}
-				ch <- &Time{Url: url, OriginUrl: originUrl, Time: time, StatusCode: statusCode}
 			}
-		}(line)
+		}()
 	}
+
+	for reader.Scan() {
+		tasks <- reader.Text()
+	}
+	if err := reader.Err(); err != nil {
+		log.Fatal("reading standard input:", err)
+	}
+	close(tasks)
 	wg.Wait()
 	close(ch)
 	<-done
