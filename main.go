@@ -293,8 +293,6 @@ func init() {
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
 	if _, err := toml.DecodeFile(configFile, &config); err != nil {
 		fmt.Println(err)
 		return
