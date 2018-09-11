@@ -41,6 +41,10 @@ use Rack::CommonLogger, logger
 ## Usage
 
 - Download [release file](https://github.com/matsuu/kataribe/releases)
+- Generate kataribe.toml
+```
+# kataribe -generate
+```
 - Edit kataribe.toml
 - Pass access log to kataribe by stdin
 ```

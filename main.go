@@ -281,6 +281,7 @@ func showTop(allTimes []*Time) {
 
 var configFile string
 var config tomlConfig
+var modeGenerate bool
 
 func init() {
 	const (
@@ -289,12 +290,26 @@ func init() {
 	)
 	flag.StringVar(&configFile, "conf", defaultConfigFile, usage)
 	flag.StringVar(&configFile, "f", defaultConfigFile, usage+" (shorthand)")
+	flag.BoolVar(&modeGenerate, "generate", false, "generate "+usage)
 	flag.Parse()
 }
 
 func main() {
+	if modeGenerate {
+		f, err := os.Create(configFile)
+		if err != nil {
+			log.Fatal("Failed to generate "+configFile+":", err)
+		}
+		defer f.Close()
+		_, err = f.Write([]byte(CONFIG_TOML))
+		if err != nil {
+			log.Fatal("Failed to write "+configFile+":", err)
+		}
+		os.Exit(0)
+	}
 	if _, err := toml.DecodeFile(configFile, &config); err != nil {
 		fmt.Println(err)
+		flag.Usage()
 		return
 	}
 
