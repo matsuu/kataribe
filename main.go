@@ -428,15 +428,20 @@ func main() {
 		measures = append(measures, measure)
 	}
 
-	buildColumns()
-	for _, column := range columns {
-		if column.Sort != nil {
-			fmt.Printf("Top %d Sort By %s\n", config.RankingCount, column.Summary)
-			By(column.Sort).Sort(measures)
-			showMeasures(measures)
-			fmt.Println()
+	if len(measures) > 0 {
+		buildColumns()
+		for _, column := range columns {
+			if column.Sort != nil {
+				fmt.Printf("Top %d Sort By %s\n", config.RankingCount, column.Summary)
+				By(column.Sort).Sort(measures)
+				showMeasures(measures)
+				fmt.Println()
+			}
 		}
 	}
 
+	if len(allTimes) == 0 {
+		log.Fatal("No parsed requests found. Please confirm log_format.")
+	}
 	showTop(allTimes)
 }
