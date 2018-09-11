@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io"
+	"log"
 	"math"
 	"os"
 	"regexp"
@@ -281,6 +281,7 @@ func showTop(allTimes []*Time) {
 
 var configFile string
 var config tomlConfig
+var modeGenerate bool
 
 func init() {
 	const (
@@ -289,18 +290,30 @@ func init() {
 	)
 	flag.StringVar(&configFile, "conf", defaultConfigFile, usage)
 	flag.StringVar(&configFile, "f", defaultConfigFile, usage+" (shorthand)")
+	flag.BoolVar(&modeGenerate, "generate", false, "generate "+usage)
 	flag.Parse()
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
+	if modeGenerate {
+		f, err := os.Create(configFile)
+		if err != nil {
+			log.Fatal("Failed to generate "+configFile+":", err)
+		}
+		defer f.Close()
+		_, err = f.Write([]byte(CONFIG_TOML))
+		if err != nil {
+			log.Fatal("Failed to write "+configFile+":", err)
+		}
+		os.Exit(0)
+	}
 	if _, err := toml.DecodeFile(configFile, &config); err != nil {
 		fmt.Println(err)
+		flag.Usage()
 		return
 	}
 
-	reader := bufio.NewReaderSize(os.Stdin, 4096)
+	reader := bufio.NewScanner(os.Stdin)
 	scale := math.Pow10(config.Scale)
 
 	done := make(chan struct{})
@@ -356,42 +369,49 @@ func main() {
 
 	logParser := regexp.MustCompile(config.LogFormat)
 
+	tasks := make(chan string)
+	cpus := runtime.NumCPU()
 	var wg sync.WaitGroup
-	for {
-		line, err := reader.ReadString('\n')
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			panic(err)
-		}
+	for worker := 0; worker < cpus; worker++ {
 		wg.Add(1)
-		go func(line string) {
+		go func() {
 			defer wg.Done()
-			submatch := logParser.FindAllStringSubmatch(strings.TrimSpace(line), -1)
-			if len(submatch) > 0 {
-				s := submatch[0]
-				url := s[config.RequestIndex]
-				originUrl := url
-				for name, re := range urlNormalizeRegexps {
-					if re.MatchString(url) {
-						url = name
-						break
+
+			for line := range tasks {
+				submatch := logParser.FindAllStringSubmatch(strings.TrimSpace(line), -1)
+				if len(submatch) > 0 {
+					s := submatch[0]
+					url := s[config.RequestIndex]
+					originUrl := url
+					for name, re := range urlNormalizeRegexps {
+						if re.MatchString(url) {
+							url = name
+							break
+						}
 					}
+					time, err := strconv.ParseFloat(s[config.DurationIndex], 10)
+					if err == nil {
+						time = time * scale
+					} else {
+						time = 0.000
+					}
+					statusCode, err := strconv.Atoi(string(s[config.StatusIndex][0]))
+					if err != nil {
+						statusCode = 0
+					}
+					ch <- &Time{Url: url, OriginUrl: originUrl, Time: time, StatusCode: statusCode}
 				}
-				time, err := strconv.ParseFloat(s[config.DurationIndex], 10)
-				if err == nil {
-					time = time * scale
-				} else {
-					time = 0.000
-				}
-				statusCode, err := strconv.Atoi(string(s[config.StatusIndex][0]))
-				if err != nil {
-					statusCode = 0
-				}
-				ch <- &Time{Url: url, OriginUrl: originUrl, Time: time, StatusCode: statusCode}
 			}
-		}(line)
+		}()
 	}
+
+	for reader.Scan() {
+		tasks <- reader.Text()
+	}
+	if err := reader.Err(); err != nil {
+		log.Fatal("reading standard input:", err)
+	}
+	close(tasks)
 	wg.Wait()
 	close(ch)
 	<-done
@@ -423,15 +443,20 @@ func main() {
 		measures = append(measures, measure)
 	}
 
-	buildColumns()
-	for _, column := range columns {
-		if column.Sort != nil {
-			fmt.Printf("Top %d Sort By %s\n", config.RankingCount, column.Summary)
-			By(column.Sort).Sort(measures)
-			showMeasures(measures)
-			fmt.Println()
+	if len(measures) > 0 {
+		buildColumns()
+		for _, column := range columns {
+			if column.Sort != nil {
+				fmt.Printf("Top %d Sort By %s\n", config.RankingCount, column.Summary)
+				By(column.Sort).Sort(measures)
+				showMeasures(measures)
+				fmt.Println()
+			}
 		}
 	}
 
+	if len(allTimes) == 0 {
+		log.Fatal("No parsed requests found. Please confirm log_format.")
+	}
 	showTop(allTimes)
 }
