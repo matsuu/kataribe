@@ -31,6 +31,9 @@ type tomlConfig struct {
 	DurationIndex  int    `toml:"duration_index"`
 	Bundle         []bundleConfig
 	Bundles        map[string]bundleConfig // for backward compatibility
+
+	ShowBytes  bool `toml:"show_bytes"`
+	BytesIndex int  `toml:"bytes_index"`
 }
 
 type bundleConfig struct {
@@ -51,6 +54,11 @@ type Measure struct {
 	S3xx        int
 	S4xx        int
 	S5xx        int
+
+	TotalBytes int
+	MinBytes   int
+	MeanBytes  int
+	MaxBytes   int
 }
 
 type By func(a, b *Measure) bool
@@ -97,6 +105,7 @@ type Time struct {
 	OriginUrl  string
 	Time       float64
 	StatusCode int
+	Byte       int
 }
 
 func (a ByTime) Len() int           { return len(a) }
@@ -121,6 +130,12 @@ func buildColumns() {
 		columns = append(columns, &Column{Name: "3xx"})
 		columns = append(columns, &Column{Name: "4xx"})
 		columns = append(columns, &Column{Name: "5xx"})
+	}
+	if config.ShowBytes {
+		columns = append(columns, &Column{Name: "TotalBytes"})
+		columns = append(columns, &Column{Name: "MinBytes"})
+		columns = append(columns, &Column{Name: "MeanBytes"})
+		columns = append(columns, &Column{Name: "MaxBytes"})
 	}
 }
 
@@ -153,6 +168,8 @@ func showMeasures(measures []*Measure) {
 	s3xxWidth := MIN_STATUS_WIDTH
 	s4xxWidth := MIN_STATUS_WIDTH
 	s5xxWidth := MIN_STATUS_WIDTH
+	totalBytesWidth := 10
+	bytesWidth := 9 // for title
 
 	rankingCount := config.RankingCount
 	if len(measures) < rankingCount {
@@ -192,6 +209,14 @@ func showMeasures(measures []*Measure) {
 		if s5xxWidth < w {
 			s5xxWidth = w
 		}
+		w = getIntegerDigitWidth(float64(measures[i].TotalBytes))
+		if totalBytesWidth < w {
+			totalBytesWidth = w
+		}
+		w = getIntegerDigitWidth(float64(measures[i].MaxBytes))
+		if bytesWidth < w {
+			bytesWidth = w
+		}
 	}
 
 	var formats []string
@@ -221,6 +246,19 @@ func showMeasures(measures []*Measure) {
 		case "5xx":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", s5xxWidth), column.Name)
 			formats = append(formats, fmt.Sprintf("%%%dd  ", s5xxWidth))
+		case "TotalBytes":
+			fmt.Printf(fmt.Sprintf("%%%ds  ", totalBytesWidth), column.Name)
+			formats = append(formats, fmt.Sprintf("%%%dd  ", totalBytesWidth))
+		case "MinBytes":
+			fmt.Printf(fmt.Sprintf("%%%ds  ", bytesWidth), column.Name)
+			formats = append(formats, fmt.Sprintf("%%%dd  ", bytesWidth))
+		case "MeanBytes":
+			fmt.Printf(fmt.Sprintf("%%%ds  ", bytesWidth), column.Name)
+			formats = append(formats, fmt.Sprintf("%%%dd  ", bytesWidth))
+		case "MaxBytes":
+			fmt.Printf(fmt.Sprintf("%%%ds  ", bytesWidth), column.Name)
+			formats = append(formats, fmt.Sprintf("%%%dd  ", bytesWidth))
+
 		default:
 			fmt.Printf(fmt.Sprintf("%%%ds  ", maxWidth), column.Name)
 			formats = append(formats, fmt.Sprintf("%%%d.%df  ", maxWidth, config.EffectiveDigit))
@@ -259,6 +297,17 @@ func showMeasures(measures []*Measure) {
 			fmt.Printf(formats[c], m.S5xx)
 			c++
 		}
+		if config.ShowBytes {
+			fmt.Printf(formats[c], m.TotalBytes)
+			c++
+			fmt.Printf(formats[c], m.MinBytes)
+			c++
+			fmt.Printf(formats[c], m.MeanBytes)
+			c++
+			fmt.Printf(formats[c], m.MaxBytes)
+			c++
+		}
+
 		fmt.Printf("%s\n", m.Url)
 	}
 }
@@ -345,6 +394,8 @@ func main() {
 	totals := make(map[string]float64)
 	stddevs := make(map[string]float64)
 	times := make(map[string][]float64)
+	totalBytes := make(map[string]int)
+	bytes := make(map[string][]int)
 	statusCode := make(map[string][]int)
 	var allTimes []*Time
 
@@ -353,6 +404,8 @@ func main() {
 			totals[time.Url] += time.Time
 			times[time.Url] = append(times[time.Url], time.Time)
 			allTimes = append(allTimes, time)
+			totalBytes[time.Url] += time.Byte
+			bytes[time.Url] = append(bytes[time.Url], time.Byte)
 			if statusCode[time.Url] == nil {
 				statusCode[time.Url] = make([]int, 6)
 			}
@@ -399,7 +452,11 @@ func main() {
 					if err != nil {
 						statusCode = 0
 					}
-					ch <- &Time{Url: url, OriginUrl: originUrl, Time: time, StatusCode: statusCode}
+					bytes, err := strconv.Atoi(s[config.BytesIndex])
+					if err != nil {
+						bytes = 0
+					}
+					ch <- &Time{Url: url, OriginUrl: originUrl, Time: time, StatusCode: statusCode, Byte: bytes}
 				}
 			}
 		}()
@@ -420,6 +477,8 @@ func main() {
 	for url, total := range totals {
 		sorted := times[url]
 		sort.Float64s(sorted)
+		sortedBytes := bytes[url]
+		sort.Ints(sortedBytes)
 		count := len(sorted)
 		var percentiles []float64
 		for _, p := range config.Percentiles {
@@ -439,6 +498,10 @@ func main() {
 			S3xx:        statusCode[url][3],
 			S4xx:        statusCode[url][4],
 			S5xx:        statusCode[url][5],
+			TotalBytes:  totalBytes[url],
+			MinBytes:    sortedBytes[0],
+			MeanBytes:   totalBytes[url] / count,
+			MaxBytes:    sortedBytes[count-1],
 		}
 		measures = append(measures, measure)
 	}
