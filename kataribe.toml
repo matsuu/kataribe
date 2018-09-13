@@ -10,6 +10,9 @@ show_stddev = true
 # Show HTTP Status Code columns
 show_status_code = true
 
+# Show HTTP Response Bytes columns
+show_bytes = true
+
 # Percentiles
 percentiles = [ 50.0, 90.0, 95.0, 99.0 ]
 
@@ -34,12 +37,14 @@ log_format = '^([^ ]+) ([^ ]+) ([^ ]+) \[([^\]]+)\] "((?:\\"|[^"])*)" (\d+) (\d+
 
 request_index = 5
 status_index = 6
+bytes_index = 7
 duration_index = 10
 
 # Rack example: use Rack::CommonLogger, Logger.new("/tmp/app.log")
 #log_format = '^([^ ]+) ([^ ]+) ([^ ]+) \[([^\]]+)\] "((?:\\"|[^"])*)" (\d+) (\d+|-) ([0-9.]+)$'
 #request_index = 5
 #status_index = 6
+#bytes_index = 7
 #duration_index = 8
 
 # You can aggregate requests by regular expression
