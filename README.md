@@ -23,6 +23,15 @@ log_format with_time '$remote_addr - $remote_user [$time_local] '
 access_log /var/log/nginx/access.log with_time;
 ```
 
+### H2O
+
+Add format to [access-log directive](https://h2o.examp1e.net/configure/access_log_directives.html)
+```
+access-log:
+  path: /var/log/h2o/access.log
+  format: "%h %l %u %t \"%r\" %s %b \"%{Referer}i\" \"%{User-agent}i\" %{duration}x"
+```
+
 ### Varnishncsa
 
 Add %D to [varnishncsa -F option](https://www.varnish-cache.org/docs/trunk/reference/varnishncsa.html).
