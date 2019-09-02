@@ -17,20 +17,26 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+var (
+	regexpNumberURLVars              = regexp.MustCompile(`/[0-9]+/`)
+	regexpNumberURLVarsEndsWithSpace = regexp.MustCompile(`/[0-9]+\s`)
+)
+
 type tomlConfig struct {
-	RankingCount   int  `toml:"ranking_count"`
-	SlowCount      int  `toml:"slow_count"`
-	ShowStdDev     bool `toml:"show_stddev"`
-	ShowStatusCode bool `toml:"show_status_code"`
-	Percentiles    []float64
-	Scale          int
-	EffectiveDigit int    `toml:"effective_digit"`
-	LogFormat      string `toml:"log_format"`
-	RequestIndex   int    `toml:"request_index"`
-	StatusIndex    int    `toml:"status_index"`
-	DurationIndex  int    `toml:"duration_index"`
-	Bundle         []bundleConfig
-	Bundles        map[string]bundleConfig // for backward compatibility
+	RankingCount    int  `toml:"ranking_count"`
+	NormalizeNumber bool `toml:"normalize_number"`
+	SlowCount       int  `toml:"slow_count"`
+	ShowStdDev      bool `toml:"show_stddev"`
+	ShowStatusCode  bool `toml:"show_status_code"`
+	Percentiles     []float64
+	Scale           int
+	EffectiveDigit  int    `toml:"effective_digit"`
+	LogFormat       string `toml:"log_format"`
+	RequestIndex    int    `toml:"request_index"`
+	StatusIndex     int    `toml:"status_index"`
+	DurationIndex   int    `toml:"duration_index"`
+	Bundle          []bundleConfig
+	Bundles         map[string]bundleConfig // for backward compatibility
 
 	ShowBytes  bool `toml:"show_bytes"`
 	BytesIndex int  `toml:"bytes_index"`
@@ -441,6 +447,10 @@ func main() {
 							url = name
 							break
 						}
+					}
+					if config.NormalizeNumber {
+						url = regexpNumberURLVars.ReplaceAllString(url, "/<num>/")
+						url = regexpNumberURLVarsEndsWithSpace.ReplaceAllString(url, "/<num> ")
 					}
 					time, err := strconv.ParseFloat(s[config.DurationIndex], 10)
 					if err == nil {
