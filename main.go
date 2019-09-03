@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	regexpNumericalURLVars = regexp.MustCompile(`/[0-9]+[/\s]`)
+	regexpNumericalURLVars = regexp.MustCompile(`[/=][0-9]+[/\s&?]`)
 )
 
 type tomlConfig struct {
@@ -448,18 +448,7 @@ func main() {
 						}
 					}
 					if config.NormalizeNumericalURLVars {
-						indices := regexpNumericalURLVars.FindAllStringIndex(url, -1)
-						if len(indices) != 0 {
-							pos := 0
-							newURL := ""
-							for i := range indices {
-								start, end := indices[i][0], indices[i][1]
-								newURL += url[pos:start+1] + ":num"
-								pos = end - 1
-							}
-							newURL += url[pos:]
-							url = newURL
-						}
+						url = normalizeNumericalURLVars(url)
 					}
 					time, err := strconv.ParseFloat(s[config.DurationIndex], 10)
 					if err == nil {
@@ -541,4 +530,20 @@ func main() {
 		log.Fatal("No parsed requests found. Please confirm log_format.")
 	}
 	showTop(allTimes)
+}
+
+func normalizeNumericalURLVars(url string) string {
+	indices := regexpNumericalURLVars.FindAllStringIndex(url, -1)
+	if len(indices) == 0 {
+		return url
+	}
+	pos := 0
+	newURL := ""
+	for i := range indices {
+		start, end := indices[i][0], indices[i][1]
+		newURL += url[pos:start+1] + "<num>"
+		pos = end - 1
+	}
+	newURL += url[pos:]
+	return newURL
 }
