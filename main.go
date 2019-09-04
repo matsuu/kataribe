@@ -393,6 +393,8 @@ func main() {
 	for _, b := range config.Bundles {
 		chBundle <- b
 	}
+	close(chBundle)
+	<-done
 
 	type replaceRegexp struct {
 		compiledRegexp *regexp.Regexp
@@ -412,7 +414,7 @@ func main() {
 	for _, r := range config.Replace {
 		chReplace <- r
 	}
-	close(chBundle)
+	close(chReplace)
 	<-done
 
 	ch := make(chan *Time)
