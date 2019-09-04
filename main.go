@@ -30,6 +30,7 @@ type tomlConfig struct {
 	StatusIndex    int    `toml:"status_index"`
 	DurationIndex  int    `toml:"duration_index"`
 	Bundle         []bundleConfig
+	Replace        []replaceConfig
 	Bundles        map[string]bundleConfig // for backward compatibility
 
 	ShowBytes  bool `toml:"show_bytes"`
@@ -39,6 +40,11 @@ type tomlConfig struct {
 type bundleConfig struct {
 	Name   string
 	Regexp string
+}
+
+type replaceConfig struct {
+	Regexp  string
+	Replace string
 }
 
 type Measure struct {
@@ -387,6 +393,25 @@ func main() {
 	for _, b := range config.Bundles {
 		chBundle <- b
 	}
+
+	type replaceRegexp struct {
+		compiledRegexp *regexp.Regexp
+		replace        string
+	}
+	urlReplaceRegexps := make([]*replaceRegexp, 0, len(config.Replace))
+	chReplace := make(chan replaceConfig)
+	go func() {
+		for replace := range chReplace {
+			urlReplaceRegexps = append(urlReplaceRegexps, &replaceRegexp{
+				compiledRegexp: regexp.MustCompile(replace.Regexp),
+				replace:        replace.Replace,
+			})
+		}
+		done <- struct{}{}
+	}()
+	for _, r := range config.Replace {
+		chReplace <- r
+	}
 	close(chBundle)
 	<-done
 
@@ -441,6 +466,9 @@ func main() {
 							url = name
 							break
 						}
+					}
+					for _, replace := range urlReplaceRegexps {
+						url = replace.compiledRegexp.ReplaceAllString(url, replace.replace)
 					}
 					time, err := strconv.ParseFloat(s[config.DurationIndex], 10)
 					if err == nil {
