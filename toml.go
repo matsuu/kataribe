@@ -63,4 +63,22 @@ name = "stylesheets"
 [[bundle]]
 regexp = '^(GET|HEAD) /images/'
 name = "images"
+
+# You can replace the part of urls which matched to your regular expressions.
+# For overview of regexp syntax: https://golang.org/pkg/regexp/syntax/
+#[[replace]]
+#regexp = '/[0-9]+/'
+#replace = '/<num>/'
+#
+#[[replace]]
+#regexp = '/[0-9]+\s'
+#replace = '/<num> '
+#
+#[[replace]]
+#regexp = '=[0-9]+&'
+#replace = '=<num>&'
+#
+#[[replace]]
+#regexp = '=[0-9]+\s'
+#replace = '=<num> '
 `
