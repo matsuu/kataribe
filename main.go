@@ -156,7 +156,7 @@ func getIntegerDigitWidth(f float64) int {
 func showMeasures(measures []*Measure) {
 	MIN_COUNT_WIDTH := 5 // for title
 	MIN_TOTAL_WIDTH := 2 + config.EffectiveDigit
-	MIN_MEAN_WIDTH := 2 + config.EffectiveDigit*2
+	MIN_MEAN_WIDTH := 2 + config.EffectiveDigit + 1
 	MIN_MAX_WIDTH := 2 + config.EffectiveDigit
 	MIN_STATUS_WIDTH := 3 // for title
 
@@ -185,7 +185,7 @@ func showMeasures(measures []*Measure) {
 		if totalWidth < w {
 			totalWidth = w
 		}
-		w = getIntegerDigitWidth(measures[i].Mean) + 1 + config.EffectiveDigit*2
+		w = getIntegerDigitWidth(measures[i].Mean) + 1 + config.EffectiveDigit + 1
 		if meanWidth < w {
 			meanWidth = w
 		}
@@ -230,10 +230,10 @@ func showMeasures(measures []*Measure) {
 			formats = append(formats, fmt.Sprintf("%%%d.%df  ", totalWidth, config.EffectiveDigit))
 		case "Mean":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", meanWidth), column.Name)
-			formats = append(formats, fmt.Sprintf("%%%d.%df  ", meanWidth, config.EffectiveDigit*2))
+			formats = append(formats, fmt.Sprintf("%%%d.%df  ", meanWidth, config.EffectiveDigit+1))
 		case "Stddev":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", meanWidth), column.Name)
-			formats = append(formats, fmt.Sprintf("%%%d.%df  ", meanWidth, config.EffectiveDigit*2))
+			formats = append(formats, fmt.Sprintf("%%%d.%df  ", meanWidth, config.EffectiveDigit+1))
 		case "2xx":
 			fmt.Printf(fmt.Sprintf("%%%ds  ", s2xxWidth), column.Name)
 			formats = append(formats, fmt.Sprintf("%%%dd  ", s2xxWidth))
