@@ -1,13 +1,13 @@
 Kataribe
 ========
 
-Nginx/Apache/Varnishncsa Log Profiler
+Access log profiler based on response time
 
 ## Prerequisites
 
 ### Apache
 
-Add %D to [LogFormat](http://httpd.apache.org/docs/current/mod/mod_log_config.html#logformat).
+Add `%D` to [LogFormat](http://httpd.apache.org/docs/current/mod/mod_log_config.html#logformat).
 ```
 LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-agent}i\" %D" with_time
 CustomLog logs/access_log with_time
@@ -15,7 +15,7 @@ CustomLog logs/access_log with_time
 
 ### Nginx
 
-Add $request\_time to [log\_format](http://nginx.org/en/docs/http/ngx_http_log_module.html#log_format).
+Add `$request_time` to [log\_format](http://nginx.org/en/docs/http/ngx_http_log_module.html#log_format).
 ```
 log_format with_time '$remote_addr - $remote_user [$time_local] '
                      '"$request" $status $body_bytes_sent '
@@ -25,7 +25,7 @@ access_log /var/log/nginx/access.log with_time;
 
 ### H2O
 
-Add format to [access-log directive](https://h2o.examp1e.net/configure/access_log_directives.html)
+Add `%{duration}x` to [access-log directive](https://h2o.examp1e.net/configure/access_log_directives.html)
 ```
 access-log:
   path: /var/log/h2o/access.log
@@ -34,14 +34,14 @@ access-log:
 
 ### Varnishncsa
 
-Add %D to [varnishncsa -F option](https://www.varnish-cache.org/docs/trunk/reference/varnishncsa.html).
+Add `%D` to [varnishncsa -F option](https://www.varnish-cache.org/docs/trunk/reference/varnishncsa.html).
 ```
 varnishncsa -a -w $logfile -D -P $pidfile -F '%h %l %u %t "%r" %s %b "%{Referer}i" "%{User-agent}i" %D'
 ```
 
 ### Rack
 
-Add Rack::CommonLogger to config.ru.
+Add `Rack::CommonLogger` to config.ru.
 ```
 logger = Logger.new("/tmp/app.log")
 use Rack::CommonLogger, logger
@@ -49,15 +49,27 @@ use Rack::CommonLogger, logger
 
 ## Usage
 
-- Download [release file](https://github.com/matsuu/kataribe/releases)
-- Generate kataribe.toml
+Install via go command or download [release file](https://github.com/matsuu/kataribe/releases)
+
+```sh
+go get -u github.com/matsuu/kataribe
 ```
-# kataribe -generate
+
+Generate kataribe.toml
+
+```sh
+kataribe -generate
 ```
-- Edit kataribe.toml
-- Pass access log to kataribe by stdin
+
+Edit kataribe.toml
+
+```sh
+${EDITOR} kataribe.toml
 ```
-# cat /var/log/nginx/access.log | ./kataribe [-f kataribe.toml]
+
+Pass access log to kataribe by stdin
+```sh
+cat /path/to/access.log | kataribe
 ```
 
 ## Example
