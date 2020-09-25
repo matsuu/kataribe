@@ -47,6 +47,35 @@ logger = Logger.new("/tmp/app.log")
 use Rack::CommonLogger, logger
 ```
 
+### JSON
+
+Please follow the following json format.
+
+```json
+{
+  "request":"POST /example HTTP/1.1",
+  "status":200,
+  "body_bytes":0,
+  "request_time":0.224
+}
+```
+
+Here's an example of how to configure nginx.
+
+```
+log_format with_time escape=json '{"remote_addr":"$remote_addr",'
+  '"remote_user":"$remote_user",'
+  '"time":"$time_local",'
+  '"request":"$request",'
+  '"status":$status,'
+  '"body_bytes":$body_bytes_sent,'
+  '"http_referer":"$http_referer",'
+  '"http_user_agent":"$http_user_agent",'
+  '"request_time":$request_time}';
+
+access_log /var/log/nginx/access.log with_time;
+```
+
 ## Usage
 
 Install via go command or download [release file](https://github.com/matsuu/kataribe/releases)
@@ -167,4 +196,3 @@ Apache-2.0
 ## Author
 
 [matsuu](https://github.com/matsuu)
-

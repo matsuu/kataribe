@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -35,6 +36,8 @@ type tomlConfig struct {
 
 	ShowBytes  bool `toml:"show_bytes"`
 	BytesIndex int  `toml:"bytes_index"`
+
+	Parser string `toml:"parser"`
 }
 
 type bundleConfig struct {
@@ -45,6 +48,11 @@ type bundleConfig struct {
 type replaceConfig struct {
 	Regexp  string
 	Replace string
+}
+
+type replaceRegexp struct {
+	compiledRegexp *regexp.Regexp
+	replace        string
 }
 
 type Measure struct {
@@ -107,11 +115,11 @@ var (
 type ByTime []*Time
 
 type Time struct {
-	Url        string
+	Url        string  `json:"request"`
+	Time       float64 `json:"request_time"`
+	StatusCode int     `json:"status"`
+	Byte       int     `json:"body_bytes"`
 	OriginUrl  string
-	Time       float64
-	StatusCode int
-	Byte       int
 }
 
 func (a ByTime) Len() int           { return len(a) }
@@ -334,6 +342,64 @@ func showTop(allTimes []*Time) {
 	}
 }
 
+func parseLTSV(scale float64, line string, logParser *regexp.Regexp,
+	urlNormalizeRegexps map[string]*regexp.Regexp, urlReplaceRegexps []*replaceRegexp) *Time {
+	submatch := logParser.FindAllStringSubmatch(strings.TrimSpace(line), -1)
+	if len(submatch) == 0 {
+		return nil
+	}
+
+	s := submatch[0]
+	url := s[config.RequestIndex]
+	originUrl := url
+	for name, re := range urlNormalizeRegexps {
+		if re.MatchString(url) {
+			url = name
+			break
+		}
+	}
+	for _, replace := range urlReplaceRegexps {
+		url = replace.compiledRegexp.ReplaceAllString(url, replace.replace)
+	}
+	time, err := strconv.ParseFloat(s[config.DurationIndex], 10)
+	if err == nil {
+		time = time * scale
+	} else {
+		time = 0.000
+	}
+	statusCode, err := strconv.Atoi(string(s[config.StatusIndex][0]))
+	if err != nil {
+		statusCode = 0
+	}
+	bytes, err := strconv.Atoi(s[config.BytesIndex])
+	if err != nil {
+		bytes = 0
+	}
+	return &Time{Url: url, OriginUrl: originUrl, Time: time, StatusCode: statusCode, Byte: bytes}
+}
+
+func parseJSON(scale float64, line string,
+	urlNormalizeRegexps map[string]*regexp.Regexp, urlReplaceRegexps []*replaceRegexp) (*Time, error) {
+	var t Time
+	if err := json.Unmarshal([]byte(line), &t); err != nil {
+		return nil, err
+	}
+
+	t.OriginUrl = t.Url
+	for name, re := range urlNormalizeRegexps {
+		if re.MatchString(t.Url) {
+			t.Url = name
+			break
+		}
+	}
+	for _, replace := range urlReplaceRegexps {
+		t.Url = replace.compiledRegexp.ReplaceAllString(t.Url, replace.replace)
+	}
+	t.Time *= scale
+	t.StatusCode /= 100
+	return &t, nil
+}
+
 var configFile string
 var config tomlConfig
 var modeGenerate bool
@@ -396,10 +462,6 @@ func main() {
 	close(chBundle)
 	<-done
 
-	type replaceRegexp struct {
-		compiledRegexp *regexp.Regexp
-		replace        string
-	}
 	urlReplaceRegexps := make([]*replaceRegexp, 0, len(config.Replace))
 	chReplace := make(chan replaceConfig)
 	go func() {
@@ -457,36 +519,23 @@ func main() {
 		go func() {
 			defer wg.Done()
 
+			var (
+				t   *Time
+				err error
+			)
 			for line := range tasks {
-				submatch := logParser.FindAllStringSubmatch(strings.TrimSpace(line), -1)
-				if len(submatch) > 0 {
-					s := submatch[0]
-					url := s[config.RequestIndex]
-					originUrl := url
-					for name, re := range urlNormalizeRegexps {
-						if re.MatchString(url) {
-							url = name
-							break
-						}
-					}
-					for _, replace := range urlReplaceRegexps {
-						url = replace.compiledRegexp.ReplaceAllString(url, replace.replace)
-					}
-					time, err := strconv.ParseFloat(s[config.DurationIndex], 10)
-					if err == nil {
-						time = time * scale
-					} else {
-						time = 0.000
-					}
-					statusCode, err := strconv.Atoi(string(s[config.StatusIndex][0]))
+				switch config.Parser {
+				case "json":
+					t, err = parseJSON(scale, line, urlNormalizeRegexps, urlReplaceRegexps)
 					if err != nil {
-						statusCode = 0
+						log.Fatalf("%+v\n", err)
 					}
-					bytes, err := strconv.Atoi(s[config.BytesIndex])
-					if err != nil {
-						bytes = 0
-					}
-					ch <- &Time{Url: url, OriginUrl: originUrl, Time: time, StatusCode: statusCode, Byte: bytes}
+				default:
+					t = parseLTSV(scale, line, logParser, urlNormalizeRegexps, urlReplaceRegexps)
+				}
+
+				if t != nil {
+					ch <- t
 				}
 			}
 		}()

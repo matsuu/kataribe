@@ -43,6 +43,10 @@ status_index = 6
 bytes_index = 7
 duration_index = 10
 
+# The default is ltsv.
+# If you choose json, please comment in.
+# parser = "json"
+
 # Rack example: use Rack::CommonLogger, Logger.new("/tmp/app.log")
 #log_format = '^([^ ]+) ([^ ]+) ([^ ]+) \[([^\]]+)\] "((?:\\"|[^"])*)" (\d+) (\d+|-) ([0-9.]+)$'
 #request_index = 5
