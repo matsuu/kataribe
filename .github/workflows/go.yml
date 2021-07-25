@@ -7,10 +7,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Set up Go 1.13
+    - name: Set up Go 1.16
       uses: actions/setup-go@v1
       with:
-        go-version: 1.13
+        go-version: 1.16
       id: go
 
     - name: Check out code into the Go module directory
@@ -36,16 +36,16 @@ jobs:
         ver=`echo $GITHUB_REF | sed "s@.*/@@"`
 
         mkdir releases
-        for os in freebsd linux netbsd plan9 ; do
-          for arch in 386 amd64 arm ; do
+        for os in linux ; do
+          for arch in 386 amd64 arm64 ; do
             echo Build for ${os}/${arch}
             GOOS="${os}" GOARCH="${arch}" go build ./...
             zip -q releases/kataribe-${ver}_${os}_${arch}.zip kataribe LICENSE README.md
             rm kataribe
           done
         done
-        for os in darwin openbsd ; do
-          for arch in 386 amd64 ; do
+        for os in darwin ; do
+          for arch in amd64 arm64 ; do
             echo Build for ${os}/${arch}
             GOOS="${os}" GOARCH="${arch}" go build ./...
             zip -q releases/kataribe-${ver}_${os}_${arch}.zip kataribe LICENSE README.md
