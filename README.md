@@ -32,6 +32,10 @@ access-log:
   format: "%h %l %u %t \"%r\" %s %b \"%{Referer}i\" \"%{User-agent}i\" %{duration}x"
 ```
 
+### Envoy
+
+Use [default format](https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage#config-access-log-default-format)
+
 ### Varnishncsa
 
 Add `%D` to [varnishncsa -F option](https://www.varnish-cache.org/docs/trunk/reference/varnishncsa.html).
@@ -52,6 +56,10 @@ use Rack::CommonLogger, logger
 Install via go command or download [release file](https://github.com/matsuu/kataribe/releases)
 
 ```sh
+# go >=1.16
+go install github.com/matsuu/kataribe@latest
+
+# go <1.16
 go get -u github.com/matsuu/kataribe
 ```
 
